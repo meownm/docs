@@ -1,4 +1,3 @@
-\
 @echo off
 title passport-demo-backend run_dev
 setlocal enabledelayedexpansion

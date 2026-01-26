@@ -1,4 +1,3 @@
-\
 @echo off
 title passport-demo-backend install
 setlocal enabledelayedexpansion

@@ -20,27 +20,12 @@ def build_prompt(lang: str) -> str:
             "{\"document_number\":\"...\",\"date_of_birth\":\"YYYY-MM-DD\",\"date_of_expiry\":\"YYYY-MM-DD\"}. "
             "Если распознать нельзя, верни JSON: {\"error\":{\"code\":\"MRZ_NOT_FOUND\",\"message\":\"...\"}}."
         )
-    return """
-    You parse a passport (eMRTD).
-    Extract BAC/MRZ key inputs: document number, date of birth, date of expiry.
-
-    Return STRICT JSON only:
-
-    {
-    "document_number": "...",
-    "date_of_birth": "YYYY-MM-DD",
-    "date_of_expiry": "YYYY-MM-DD"
-    }
-
-    If not possible, return:
-
-    {
-    "error": {
-        "code": "MRZ_NOT_FOUND",
-        "message": "..."
-    }
-    }
-    """
+    return (
+        "You parse a passport (eMRTD). Extract BAC/MRZ key inputs: document number, date of birth, date of expiry. "
+        "Return STRICT JSON only: "
+        "{"document_number":"...","date_of_birth":"YYYY-MM-DD","date_of_expiry":"YYYY-MM-DD"}. "
+        "If not possible: {"error":{"code":"MRZ_NOT_FOUND","message":"..."}}."
+    )
 
 
 async def ollama_chat_with_image(image_bytes: bytes) -> Tuple[str, Dict[str, Any]]:
