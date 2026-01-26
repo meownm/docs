@@ -6,5 +6,10 @@ public final class Models {
         public String date_of_birth;
         public String date_of_expiry;
     }
+
+    public static final class NfcResult {
+        public java.util.Map<String, String> passport;
+        public byte[] faceImageJpeg;
+    }
     private Models() {}
 }
