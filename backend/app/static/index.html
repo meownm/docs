@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Passport Demo Web</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <main class="container">
+    <h1>Демо: сканирование загранпаспорта</h1>
+
+    <section class="card">
+      <h2>Статус</h2>
+      <div id="status" class="status">Ожидаю NFC-сканирование...</div>
+    </section>
+
+    <section class="card">
+      <h2>Фото из NFC</h2>
+      <div class="photo">
+        <img id="face" alt="Фото появится после NFC-сканирования" />
+      </div>
+      <div id="meta" class="meta"></div>
+    </section>
+  </main>
+
+  <script>
+    const statusEl = document.getElementById("status");
+    const faceEl = document.getElementById("face");
+    const metaEl = document.getElementById("meta");
+
+    function connect() {
+      const es = new EventSource("/api/events");
+      es.addEventListener("nfc_scan_success", (evt) => {
+        try {
+          const data = JSON.parse(evt.data);
+          statusEl.textContent = "NFC-сканирование успешно. scan_id=" + data.scan_id;
+          faceEl.src = data.face_image_url;
+          metaEl.textContent = "Источник: " + data.face_image_url;
+        } catch (e) {
+          statusEl.textContent = "Ошибка парсинга события";
+        }
+      });
+      es.onerror = () => {
+        statusEl.textContent = "Потеряно соединение. Переподключаюсь...";
+        es.close();
+        setTimeout(connect, 1000);
+      };
+    }
+
+    connect();
+  </script>
+</body>
+</html>
