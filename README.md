@@ -84,3 +84,10 @@ cd backend
 poetry install
 poetry run pytest
 ```
+
+Android (unit/integration tests в `mobile_android_java/`):
+
+```bat
+cd mobile_android_java
+gradlew test
+```

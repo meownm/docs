@@ -14,12 +14,12 @@ public class BackendApiTest {
 
     @Test
     public void buildNfcPayloadJsonEncodesPassportAndImage() throws Exception {
-        MRZKeys mrz = new MRZKeys();
+        Models.MRZKeys mrz = new Models.MRZKeys();
         mrz.document_number = "123456789";
         mrz.date_of_birth = "1990-01-01";
         mrz.date_of_expiry = "2030-01-01";
 
-        NfcResult result = NfcPassportReader.readPassport(null, mrz);
+        Models.NfcResult result = NfcPassportReader.readPassport(null, mrz);
         result.faceImageJpeg = new byte[] {1, 2, 3};
 
         String json = BackendApi.buildNfcPayloadJson(result);
@@ -32,7 +32,7 @@ public class BackendApiTest {
 
     @Test
     public void buildNfcPayloadJsonRejectsMissingImage() {
-        NfcResult result = new NfcResult();
+        Models.NfcResult result = new Models.NfcResult();
         result.passport = new java.util.HashMap<>();
         result.passport.put("document_number", "123");
 
@@ -41,7 +41,7 @@ public class BackendApiTest {
 
     @Test
     public void buildNfcPayloadJsonRejectsMissingPassport() {
-        NfcResult result = new NfcResult();
+        Models.NfcResult result = new Models.NfcResult();
         result.faceImageJpeg = new byte[] {1};
 
         assertThrows(IllegalArgumentException.class, () -> BackendApi.buildNfcPayloadJson(result));
