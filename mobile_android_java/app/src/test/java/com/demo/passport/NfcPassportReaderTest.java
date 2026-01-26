@@ -10,12 +10,12 @@ public class NfcPassportReaderTest {
 
     @Test
     public void readPassportPopulatesPassportFields() throws Exception {
-        MRZKeys mrz = new MRZKeys();
+        Models.MRZKeys mrz = new Models.MRZKeys();
         mrz.document_number = "123456789";
         mrz.date_of_birth = "1990-01-01";
         mrz.date_of_expiry = "2030-01-01";
 
-        NfcResult result = NfcPassportReader.readPassport(null, mrz);
+        Models.NfcResult result = NfcPassportReader.readPassport(null, mrz);
 
         assertNotNull(result);
         assertNotNull(result.passport);
@@ -31,7 +31,7 @@ public class NfcPassportReaderTest {
 
     @Test
     public void readPassportRejectsBlankField() {
-        MRZKeys mrz = new MRZKeys();
+        Models.MRZKeys mrz = new Models.MRZKeys();
         mrz.document_number = "";
         mrz.date_of_birth = "1990-01-01";
         mrz.date_of_expiry = "2030-01-01";
