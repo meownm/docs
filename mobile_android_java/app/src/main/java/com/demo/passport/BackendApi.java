@@ -35,13 +35,7 @@ public final class BackendApi {
     }
 
     public static void sendNfcScan(NfcResult nfc) throws Exception {
-        String imgB64 = Base64.getEncoder().encodeToString(nfc.faceImageJpeg);
-
-        NFCPayload payload = new NFCPayload();
-        payload.passport = nfc.passport;
-        payload.face_image_b64 = imgB64;
-
-        String json = gson.toJson(payload);
+        String json = buildNfcPayloadJson(nfc);
         Request req = new Request.Builder()
                 .url(BackendConfig.BASE_URL + "/api/passport/nfc")
                 .post(RequestBody.create(json, MediaType.parse("application/json")))
@@ -51,6 +45,26 @@ public final class BackendApi {
             String s = resp.body() != null ? resp.body().string() : "";
             if (!resp.isSuccessful()) throw new RuntimeException("HTTP " + resp.code() + ": " + s);
         }
+    }
+
+    static String buildNfcPayloadJson(NfcResult nfc) {
+        if (nfc == null) {
+            throw new IllegalArgumentException("NFC result is required");
+        }
+        if (nfc.passport == null || nfc.passport.isEmpty()) {
+            throw new IllegalArgumentException("Passport data is required");
+        }
+        if (nfc.faceImageJpeg == null || nfc.faceImageJpeg.length == 0) {
+            throw new IllegalArgumentException("Face image is required");
+        }
+
+        String imgB64 = Base64.getEncoder().encodeToString(nfc.faceImageJpeg);
+
+        NFCPayload payload = new NFCPayload();
+        payload.passport = nfc.passport;
+        payload.face_image_b64 = imgB64;
+
+        return gson.toJson(payload);
     }
 
     private BackendApi() {}

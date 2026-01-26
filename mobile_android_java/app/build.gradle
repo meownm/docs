@@ -42,4 +42,6 @@ dependencies {
     implementation 'org.jmrtd:jmrtd:0.7.42'
     implementation 'net.sf.scuba:scuba-smartcards:0.0.23'
     implementation 'com.github.mhshams:jmrtd-android:0.7.42' // optional helper for Android; may vary by repo
+
+    testImplementation 'junit:junit:4.13.2'
 }
