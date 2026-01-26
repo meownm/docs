@@ -1,0 +1,5 @@
+
+dependencies {
+    implementation files("libs/scuba-smartcards-0.0.23.jar")
+    implementation "org.jmrtd:jmrtd:0.7.42"
+}

@@ -11,8 +11,8 @@ public final class Models {
 
     public static final class MRZKeys {
         public String document_number;
-        public String date_of_birth;
-        public String date_of_expiry;
+        public String date_of_birth; // YYYY-MM-DD
+        public String date_of_expiry; // YYYY-MM-DD
     }
 
     public static final class RecognizeResponse {

@@ -2,3 +2,10 @@
 *.db
 *.lock
 backend/.env
+*.bin
+/mobile_android_java/.gradle
+/mobile_android_java/.gradle
+/mobile_android_java/app/build
+/mobile_android_java/app/build
+/mobile_android_java/.idea
+/mobile_android_java/.gradle

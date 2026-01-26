@@ -1,1 +1,2 @@
+rootProject.name='mobile_android_java'
 include ':app'
