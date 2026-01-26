@@ -1,36 +1,52 @@
-title passport-demo build android apk
-setlocal
+setlocal enabledelayedexpansion
 
-set PROJECT_DIR=mobile_android_java
-set GRADLEW=%PROJECT_DIR%\gradlew.bat
-set APK_PATH=%PROJECT_DIR%\app\build\outputs\apk\debug
+title build_android_apk
 
-if not exist %PROJECT_DIR% (
-  echo ERROR: mobile_android_java directory not found
-  pause
-  exit /b 1
+echo ===============================
+echo Building Android APK (DEBUG)
+echo ===============================
+
+REM Переходим в директорию скрипта
+cd /d %~dp0
+
+REM Проверка gradlew
+if not exist gradlew.bat (
+    echo ERROR: gradlew.bat not found
+    pause
+    exit /b 1
 )
 
-if not exist %GRADLEW% (
-  echo ERROR: gradlew.bat not found
-  pause
-  exit /b 1
+REM Очистка предыдущих билдов
+call gradlew.bat clean
+if errorlevel 1 (
+    echo ERROR: gradle clean failed
+    pause
+    exit /b 1
 )
 
-cd /d %PROJECT_DIR%
-call gradlew.bat clean || goto :err
-call gradlew.bat assembleDebug || goto :err
-cd /d ..
+REM Сборка debug APK
+call gradlew.bat assembleDebug
+if errorlevel 1 (
+    echo ERROR: assembleDebug failed
+    pause
+    exit /b 1
+)
 
-echo.
-echo APK build completed.
-echo Output folder:
-echo %APK_PATH%
-echo.
-pause
-exit /b 0
+REM Проверка результата
+set APK_PATH=app\build\outputs\apk\debug\app-debug.apk
 
-:err
-echo ERROR: build failed
+if exist "%APK_PATH%" (
+    echo ===============================
+    echo BUILD SUCCESS
+    echo APK:
+    echo %APK_PATH%
+    echo ===============================
+) else (
+    echo ===============================
+    echo ERROR: APK not found
+    echo Expected at:
+    echo %APK_PATH%
+    echo ===============================
+)
+
 pause
-exit /b 1
