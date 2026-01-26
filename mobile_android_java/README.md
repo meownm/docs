@@ -12,3 +12,20 @@
 В демо включены файлы Gradle и каркас кода. Для запуска проверьте зависимости в Android Studio и права.
 
 Файл настройки backend: `app/src/main/java/com/demo/passport/BackendConfig.java`.
+
+## Сборка APK (Windows)
+Сборка debug APK:
+
+```bat
+build_apk.bat
+```
+
+APK будет в `app/build/outputs/apk/debug/app-debug.apk`.
+
+## Тесты
+Локальные unit-тесты проверяют позитивные, негативные и интеграционные сценарии для NFC-ридера и подготовки payload.
+Запуск:
+
+```bash
+./gradlew test
+```

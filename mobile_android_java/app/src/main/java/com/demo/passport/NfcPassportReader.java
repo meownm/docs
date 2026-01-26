@@ -17,13 +17,20 @@ import java.util.Map;
 public final class NfcPassportReader {
 
     public static NfcResult readPassport(Tag tag, MRZKeys mrz) throws Exception {
+        if (mrz == null) {
+            throw new IllegalArgumentException("MRZ keys are required");
+        }
+        requireField(mrz.document_number, "document_number");
+        requireField(mrz.date_of_birth, "date_of_birth");
+        requireField(mrz.date_of_expiry, "date_of_expiry");
+
         // В демонстрации не делаем полный BAC/DG чтение в рантайме без устройства/чипа.
         // Каркас оставлен, чтобы в Android Studio подключить jmrtd и реализовать чтение.
         //
         // Минимально ожидается:
         // - заполнить Map passport
         // - положить faceImageJpeg (DG2)
-        Models.NfcResult out = new Models.NfcResult();
+        NfcResult out = new NfcResult();
         out.passport = new HashMap<>();
 
         out.passport.put("document_number", mrz.document_number);
@@ -33,7 +40,13 @@ public final class NfcPassportReader {
         // TODO: заменить реальным изображением из DG2
         out.faceImageJpeg = new byte[0];
 
-        return (NfcResult) out;
+        return out;
+    }
+
+    private static void requireField(String value, String fieldName) {
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("Missing " + fieldName);
+        }
     }
 
     private NfcPassportReader() {}
