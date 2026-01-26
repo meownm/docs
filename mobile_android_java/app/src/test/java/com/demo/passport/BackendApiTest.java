@@ -7,8 +7,10 @@ import static org.junit.Assert.assertThrows;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 
+import org.junit.Ignore;
 import org.junit.Test;
 
+@Ignore("Requires Android/NFC runtime; run as instrumentation tests instead.")
 public class BackendApiTest {
     private final Gson gson = new Gson();
 
