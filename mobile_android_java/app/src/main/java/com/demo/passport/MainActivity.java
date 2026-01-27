@@ -167,6 +167,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setState(State newState) {
+        State previousState = currentState;
         if ((newState == State.NFC_WAIT || newState == State.NFC_READING) && nfcAdapter == null) {
             lastErrorMessage = "NFC не поддерживается";
             newState = State.ERROR;
@@ -179,17 +180,17 @@ public class MainActivity extends AppCompatActivity {
         textDocumentNumber.setText(uiState.documentNumber);
         textBirthDate.setText(uiState.birthDate);
         textExpiryDate.setText(uiState.expiryDate);
-        updateNfcDispatch(uiState.enableNfc);
+        updateNfcDispatch(NfcDispatchTransition.from(previousState, newState));
         if (uiState.toastMessage != null) {
             Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
         }
     }
 
-    private void updateNfcDispatch(boolean enable) {
+    private void updateNfcDispatch(NfcDispatchTransition.Action action) {
         if (nfcAdapter == null) {
             return;
         }
-        if (enable) {
+        if (action == NfcDispatchTransition.Action.ENABLE) {
             PendingIntent pendingIntent =
                     PendingIntent.getActivity(
                             this,
@@ -198,7 +199,7 @@ public class MainActivity extends AppCompatActivity {
                             PendingIntent.FLAG_MUTABLE
                     );
             nfcAdapter.enableForegroundDispatch(this, pendingIntent, null, null);
-        } else {
+        } else if (action == NfcDispatchTransition.Action.DISABLE) {
             nfcAdapter.disableForegroundDispatch(this);
         }
     }

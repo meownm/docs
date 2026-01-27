@@ -18,7 +18,6 @@ public class UiStateModelTest {
         assertEquals("Номер документа: -", model.documentNumber);
         assertEquals("Дата рождения: -", model.birthDate);
         assertEquals("Срок действия: -", model.expiryDate);
-        assertFalse(model.enableNfc);
         assertNull(model.toastMessage);
     }
 
@@ -37,7 +36,6 @@ public class UiStateModelTest {
         assertEquals("Номер документа: AB123", model.documentNumber);
         assertEquals("Дата рождения: 1990-01-01", model.birthDate);
         assertEquals("Срок действия: 2030-01-01", model.expiryDate);
-        assertFalse(model.enableNfc);
     }
 
     @Test
@@ -50,7 +48,6 @@ public class UiStateModelTest {
         assertEquals("Номер документа: -", model.documentNumber);
         assertEquals("Дата рождения: -", model.birthDate);
         assertEquals("Срок действия: -", model.expiryDate);
-        assertTrue(model.enableNfc);
         assertEquals("Приложите паспорт к NFC", model.toastMessage);
     }
 
@@ -64,7 +61,6 @@ public class UiStateModelTest {
         assertEquals("Номер документа: -", model.documentNumber);
         assertEquals("Дата рождения: -", model.birthDate);
         assertEquals("Срок действия: -", model.expiryDate);
-        assertFalse(model.enableNfc);
         assertEquals("boom", model.toastMessage);
     }
 }
