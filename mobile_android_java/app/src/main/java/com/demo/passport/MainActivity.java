@@ -27,12 +27,18 @@ import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "APP";
     private static final String FILE_PROVIDER_SUFFIX = ".fileprovider";
     private static final String MRZ_DATE_REGEX = "\\d{6}";
+    private static final String MRZ_DATE_YYYYMMDD_REGEX = "\\d{8}";
+    private static final String MRZ_DATE_YYYY_MM_DD_REGEX = "\\d{4}-\\d{2}-\\d{2}";
     public enum State {
         CAMERA,
         PHOTO_SENDING,
@@ -366,10 +372,15 @@ public class MainActivity extends AppCompatActivity {
         if (isBlank(documentNumber) || isBlank(birthDate) || isBlank(expiryDate)) {
             return null;
         }
+        String normalizedBirth = normalizeMrzDate(birthDate);
+        String normalizedExpiry = normalizeMrzDate(expiryDate);
+        if (normalizedBirth == null || normalizedExpiry == null) {
+            return null;
+        }
         Models.MRZKeys keys = new Models.MRZKeys();
         keys.document_number = documentNumber.trim();
-        keys.date_of_birth = birthDate.trim();
-        keys.date_of_expiry = expiryDate.trim();
+        keys.date_of_birth = normalizedBirth;
+        keys.date_of_expiry = normalizedExpiry;
         return keys;
     }
 
@@ -377,16 +388,16 @@ public class MainActivity extends AppCompatActivity {
         if (isBlank(documentNumber) || isBlank(birthDate) || isBlank(expiryDate)) {
             return "Заполните номер документа, дату рождения и срок действия";
         }
-        boolean birthValid = isValidMrzDate(birthDate);
-        boolean expiryValid = isValidMrzDate(expiryDate);
+        boolean birthValid = normalizeMrzDate(birthDate) != null;
+        boolean expiryValid = normalizeMrzDate(expiryDate) != null;
         if (!birthValid && !expiryValid) {
-            return "Дата рождения и срок действия должны быть в формате YYMMDD";
+            return "Дата рождения и срок действия должны быть в формате YYMMDD (или YYYYMMDD, YYYY-MM-DD)";
         }
         if (!birthValid) {
-            return "Дата рождения должна быть в формате YYMMDD";
+            return "Дата рождения должна быть в формате YYMMDD (или YYYYMMDD, YYYY-MM-DD)";
         }
         if (!expiryValid) {
-            return "Срок действия должен быть в формате YYMMDD";
+            return "Срок действия должен быть в формате YYMMDD (или YYYYMMDD, YYYY-MM-DD)";
         }
         return null;
     }
@@ -425,6 +436,39 @@ public class MainActivity extends AppCompatActivity {
 
     private static boolean isValidMrzDate(String value) {
         return value != null && value.trim().matches(MRZ_DATE_REGEX);
+    }
+
+    private static String normalizeMrzDate(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.matches(MRZ_DATE_REGEX)) {
+            return trimmed;
+        }
+        if (trimmed.matches(MRZ_DATE_YYYYMMDD_REGEX)) {
+            return formatMrzDate(trimmed, "yyyyMMdd");
+        }
+        if (trimmed.matches(MRZ_DATE_YYYY_MM_DD_REGEX)) {
+            return formatMrzDate(trimmed, "yyyy-MM-dd");
+        }
+        return null;
+    }
+
+    private static String formatMrzDate(String value, String pattern) {
+        SimpleDateFormat inputFormat = new SimpleDateFormat(pattern, Locale.US);
+        inputFormat.setLenient(false);
+        SimpleDateFormat outputFormat = new SimpleDateFormat("yyMMdd", Locale.US);
+        outputFormat.setLenient(false);
+        try {
+            Date parsed = inputFormat.parse(value);
+            if (parsed == null) {
+                return null;
+            }
+            return outputFormat.format(parsed);
+        } catch (ParseException e) {
+            return null;
+        }
     }
 
     static String buildFileProviderAuthority(String packageName) {

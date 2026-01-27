@@ -73,6 +73,8 @@ def test_api_request_log_success(client, monkeypatch):
     _parse_placeholder(row["request_body"])
     response_payload = json.loads(row["response_body"])
     assert response_payload["document_number"] == "123456789"
+    assert response_payload["date_of_birth"] == "900101"
+    assert response_payload["date_of_expiry"] == "300101"
 
 
 def test_api_request_log_error(client):
@@ -139,8 +141,8 @@ def test_api_request_log_json_body_and_response(client):
     payload = {
         "passport": {
             "document_number": "123456789",
-            "date_of_birth": "1990-01-01",
-            "date_of_expiry": "2030-01-01",
+            "date_of_birth": "900101",
+            "date_of_expiry": "300101",
         },
         "face_image_b64": base64.b64encode(b"tiny-face").decode("utf-8"),
     }
@@ -162,8 +164,8 @@ def test_api_request_log_large_body_placeholder(client):
     payload = {
         "passport": {
             "document_number": "987654321",
-            "date_of_birth": "1991-01-01",
-            "date_of_expiry": "2031-01-01",
+            "date_of_birth": "910101",
+            "date_of_expiry": "310101",
         },
         "face_image_b64": base64.b64encode(large_bytes).decode("utf-8"),
     }
@@ -181,8 +183,8 @@ def test_api_request_log_binary_response_placeholder(client):
     payload = {
         "passport": {
             "document_number": "111111111",
-            "date_of_birth": "1992-01-01",
-            "date_of_expiry": "2032-01-01",
+            "date_of_birth": "920101",
+            "date_of_expiry": "320101",
         },
         "face_image_b64": base64.b64encode(b"binary-face").decode("utf-8"),
     }
