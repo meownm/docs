@@ -1,5 +1,6 @@
 import base64
 import json
+import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
@@ -9,6 +10,12 @@ from app.settings import Settings, settings
 from app import api as api_module
 from app import db as db_module
 from app import settings as settings_module
+
+
+def fetch_rows(db_path: str, query: str, params: tuple = ()) -> list[sqlite3.Row]:
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        return conn.execute(query, params).fetchall()
 
 
 @pytest.fixture()
@@ -94,6 +101,8 @@ def test_store_nfc_invalid_base64_returns_error_payload(client):
 
     assert response.status_code == 422
     assert response.json()["detail"].startswith("Invalid face_image_b64:")
+    rows = fetch_rows(settings_module.settings.db_path, "SELECT * FROM nfc_scans")
+    assert rows == []
 
 
 def test_store_nfc_missing_passport_returns_error_payload(client):
@@ -108,10 +117,11 @@ def test_store_nfc_missing_passport_returns_error_payload(client):
 
 def test_store_nfc_and_fetch_face_integration(client):
     face_bytes = b"fake-image-bytes"
+    passport_payload = {"doc": "x"}
     response = client.post(
         "/nfc",
         json={
-            "passport": {"doc": "x"},
+            "passport": passport_payload,
             "face_image_b64": base64.b64encode(face_bytes).decode("ascii"),
         },
     )
@@ -122,3 +132,13 @@ def test_store_nfc_and_fetch_face_integration(client):
     face_response = client.get(f"/nfc/{scan_id}/face.jpg")
     assert face_response.status_code == 200
     assert face_response.content == face_bytes
+
+    rows = fetch_rows(
+        settings_module.settings.db_path,
+        "SELECT * FROM nfc_scans WHERE scan_id = ?",
+        (scan_id,),
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["face_image_path"].endswith(f"{scan_id}_face.jpg")
+    assert json.loads(row["passport_json"]) == passport_payload

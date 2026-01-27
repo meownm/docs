@@ -6,6 +6,7 @@ import os
 import uuid
 import base64
 import binascii
+from datetime import datetime
 from typing import AsyncIterator
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
@@ -14,6 +15,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from app.settings import settings
 from app.llm import ollama_chat_with_image, LLMUnavailableError
 from app.events import event_bus
+from app.db import get_db
 
 
 router = APIRouter()
@@ -120,6 +122,26 @@ async def _nfc_impl(payload: dict):
     face_path = os.path.join(settings.files_dir, f"{scan_id}_face.jpg")
     with open(face_path, "wb") as f:
         f.write(face_bytes)
+
+    async with get_db() as conn:
+        await conn.execute(
+            """
+            INSERT INTO nfc_scans (
+                scan_id,
+                ts_utc,
+                passport_json,
+                face_image_path
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                scan_id,
+                datetime.utcnow().isoformat(),
+                json.dumps(passport, ensure_ascii=False),
+                face_path,
+            ),
+        )
+        await conn.commit()
 
     await event_bus.publish({
         "type": "nfc_scan_success",
