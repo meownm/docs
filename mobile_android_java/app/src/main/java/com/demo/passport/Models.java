@@ -11,5 +11,11 @@ public final class Models {
         public java.util.Map<String, String> passport;
         public byte[] faceImageJpeg;
     }
+
+    public static final class NfcScanResponse {
+        public String scan_id;
+        public String face_image_url;
+        public com.google.gson.JsonObject passport;
+    }
     private Models() {}
 }

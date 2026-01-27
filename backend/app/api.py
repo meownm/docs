@@ -48,6 +48,8 @@ def parse_date_to_yymmdd(value: str | None) -> str | None:
 
 def normalize_mrz_container(container: dict) -> dict:
     updated = dict(container)
+    if "document_number" in updated and updated["document_number"] is not None:
+        updated["document_number"] = str(updated["document_number"]).strip().upper()
     for key in ("date_of_birth", "date_of_expiry"):
         if key in updated:
             normalized = parse_date_to_yymmdd(str(updated[key]))
@@ -67,17 +69,30 @@ def extract_mrz(llm_text: str) -> dict | None:
     # --- JSON ---
     try:
         data = json.loads(llm_text)
-        src = data.get("mrz", data)
-        if all(k in src for k in ("document_number", "date_of_birth", "date_of_expiry")):
-            date_of_birth = parse_date_to_yymmdd(str(src["date_of_birth"]))
-            date_of_expiry = parse_date_to_yymmdd(str(src["date_of_expiry"]))
-            if date_of_birth is None or date_of_expiry is None:
-                return None
-            return {
-                "document_number": str(src["document_number"]),
-                "date_of_birth": date_of_birth,
-                "date_of_expiry": date_of_expiry,
-            }
+        candidates = []
+        if isinstance(data.get("mrz"), dict):
+            candidates.append(data["mrz"])
+        if isinstance(data.get("fields"), dict):
+            fields = data["fields"]
+            candidates.append({
+                "document_number": fields.get("document_number") or fields.get("passport_number"),
+                "date_of_birth": fields.get("date_of_birth"),
+                "date_of_expiry": fields.get("date_of_expiry"),
+            })
+        if isinstance(data, dict):
+            candidates.append(data)
+
+        for src in candidates:
+            if all(src.get(k) for k in ("document_number", "date_of_birth", "date_of_expiry")):
+                date_of_birth = parse_date_to_yymmdd(str(src["date_of_birth"]))
+                date_of_expiry = parse_date_to_yymmdd(str(src["date_of_expiry"]))
+                if date_of_birth is None or date_of_expiry is None:
+                    continue
+                return normalize_mrz_container({
+                    "document_number": str(src["document_number"]),
+                    "date_of_birth": date_of_birth,
+                    "date_of_expiry": date_of_expiry,
+                })
     except Exception:
         pass
 
@@ -144,6 +159,8 @@ async def _nfc_impl(payload: dict):
     scan_id = str(uuid.uuid4())
 
     passport = payload.get("passport")
+    if passport is None and isinstance(payload.get("mrz"), dict):
+        passport = {"mrz": payload.get("mrz")}
     if not isinstance(passport, dict) or not passport:
         raise HTTPException(status_code=422, detail="Invalid passport")
 
@@ -156,9 +173,17 @@ async def _nfc_impl(payload: dict):
     except (binascii.Error, ValueError) as e:
         raise HTTPException(status_code=422, detail=f"Invalid face_image_b64: {e}")
 
+    passport = dict(passport)
     if "mrz" in passport and isinstance(passport.get("mrz"), dict):
-        passport = dict(passport)
         passport["mrz"] = normalize_mrz_container(passport["mrz"])
+    elif all(key in passport for key in ("document_number", "date_of_birth", "date_of_expiry")):
+        passport["mrz"] = normalize_mrz_container({
+            "document_number": passport.get("document_number"),
+            "date_of_birth": passport.get("date_of_birth"),
+            "date_of_expiry": passport.get("date_of_expiry"),
+        })
+    if isinstance(payload.get("mrz"), dict) and "mrz" not in passport:
+        passport["mrz"] = normalize_mrz_container(payload.get("mrz"))
     passport = normalize_mrz_container(passport)
 
     ts_utc = datetime.utcnow().isoformat()
@@ -187,12 +212,21 @@ async def _nfc_impl(payload: dict):
         )
         await conn.commit()
 
+    face_image_url = f"/api/nfc/{scan_id}/face.jpg"
+    normalized_response = {
+        "scan_id": scan_id,
+        "face_image_url": face_image_url,
+        "passport": passport,
+    }
+
     await event_bus.publish({
         "type": "nfc_scan_success",
         "scan_id": scan_id,
+        "face_image_url": face_image_url,
+        "passport": passport,
     })
 
-    return {"scan_id": scan_id}
+    return normalized_response
 
 
 # --- Канон мобилки ---

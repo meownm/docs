@@ -1,5 +1,6 @@
 package com.demo.passport;
 
+import android.util.Base64;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.io.PrintWriter;
@@ -12,8 +13,8 @@ import java.io.IOException;
 public final class BackendApi {
     private static final long DEFAULT_ERROR_REPORT_INTERVAL_MS = 5000;
     private static final OkHttpClient client = new OkHttpClient.Builder()
-            .connectTimeout(30, TimeUnit.SECONDS)
-            .writeTimeout(30, TimeUnit.SECONDS)
+            .connectTimeout(120, TimeUnit.SECONDS)
+            .writeTimeout(120, TimeUnit.SECONDS)
             .readTimeout(120, TimeUnit.SECONDS)
             .callTimeout(120, TimeUnit.SECONDS)
             .build();
@@ -28,7 +29,7 @@ public final class BackendApi {
     }
 
     public interface DebugListener {
-        void onDebugResponse(String rawResponse);
+        void onDebugResponse(String source, String rawResponse);
     }
 
     public static void setDebugListener(DebugListener listener) {
@@ -54,7 +55,7 @@ public final class BackendApi {
             @Override
             public void onFailure(Call call, IOException e) {
                 String message = "HTTP failure: " + e.getMessage();
-                emitDebugResponse(message);
+                emitDebugResponse("recognize", message);
                 reportError(
                         message,
                         stackTraceToString(e),
@@ -67,7 +68,7 @@ public final class BackendApi {
             @Override
             public void onResponse(Call call, Response resp) throws IOException {
                 String s = resp.body() != null ? resp.body().string() : "";
-                emitDebugResponse(s);
+                emitDebugResponse("recognize", s);
                 if (!resp.isSuccessful()) {
                     String message = "HTTP " + resp.code() + ": " + s;
                     reportError(
@@ -135,7 +136,7 @@ public final class BackendApi {
             @Override
             public void onFailure(Call call, IOException e) {
                 String message = "HTTP failure: " + e.getMessage();
-                emitDebugResponse(message);
+                emitDebugResponse("nfc", message);
                 reportError(
                         message,
                         stackTraceToString(e),
@@ -148,7 +149,7 @@ public final class BackendApi {
             @Override
             public void onResponse(Call call, Response resp) throws IOException {
                 String s = resp.body() != null ? resp.body().string() : "";
-                emitDebugResponse(s);
+                emitDebugResponse("nfc", s);
                 if (!resp.isSuccessful()) {
                     String message = "HTTP " + resp.code() + ": " + s;
                     reportError(
@@ -161,6 +162,118 @@ public final class BackendApi {
                     return;
                 }
                 cb.onSuccess(null);
+            }
+        });
+    }
+
+    public static void sendNfcRawAndParse(JsonObject payload, Callback<Models.NfcScanResponse> cb) {
+        String json = gson.toJson(payload);
+        Request req = new Request.Builder()
+                .url(BackendConfig.getBaseUrl() + "/nfc")
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .build();
+
+        client.newCall(req).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                String message = "HTTP failure: " + e.getMessage();
+                emitDebugResponse("nfc", message);
+                reportError(
+                        message,
+                        stackTraceToString(e),
+                        buildRequestContext(req, null, null),
+                        null
+                );
+                cb.onError(message);
+            }
+
+            @Override
+            public void onResponse(Call call, Response resp) throws IOException {
+                String s = resp.body() != null ? resp.body().string() : "";
+                emitDebugResponse("nfc", s);
+                if (!resp.isSuccessful()) {
+                    String message = "HTTP " + resp.code() + ": " + s;
+                    reportError(
+                            message,
+                            null,
+                            buildRequestContext(req, resp.code(), s),
+                            null
+                    );
+                    cb.onError(message);
+                    return;
+                }
+                JsonObject obj;
+                try {
+                    obj = gson.fromJson(s, JsonObject.class);
+                } catch (Exception e) {
+                    String message = "NFC_ERROR: invalid JSON: " + e.getMessage();
+                    reportError(
+                            message,
+                            stackTraceToString(e),
+                            buildRequestContext(req, resp.code(), s),
+                            null
+                    );
+                    cb.onError(message);
+                    return;
+                }
+
+                if (!obj.has("scan_id") || !obj.has("face_image_url") || !obj.has("passport")) {
+                    String message = "NFC_ERROR: missing response fields";
+                    reportError(
+                            message,
+                            null,
+                            buildRequestContext(req, resp.code(), s),
+                            null
+                    );
+                    cb.onError(message);
+                    return;
+                }
+                Models.NfcScanResponse result = new Models.NfcScanResponse();
+                result.scan_id = obj.get("scan_id").getAsString();
+                result.face_image_url = obj.get("face_image_url").getAsString();
+                result.passport = obj.getAsJsonObject("passport");
+                cb.onSuccess(result);
+            }
+        });
+    }
+
+    public static void fetchFaceImage(String url, Callback<byte[]> cb) {
+        Request req = new Request.Builder()
+                .url(url)
+                .get()
+                .build();
+
+        client.newCall(req).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                String message = "HTTP failure: " + e.getMessage();
+                emitDebugResponse("face", message);
+                reportError(
+                        message,
+                        stackTraceToString(e),
+                        buildRequestContext(req, null, null),
+                        null
+                );
+                cb.onError(message);
+            }
+
+            @Override
+            public void onResponse(Call call, Response resp) throws IOException {
+                byte[] bytes = resp.body() != null ? resp.body().bytes() : new byte[0];
+                String debugPayload = bytes.length == 0 ? "" : Base64.encodeToString(bytes, Base64.NO_WRAP);
+                emitDebugResponse("face", debugPayload);
+                if (!resp.isSuccessful()) {
+                    String message = "HTTP " + resp.code();
+                    reportError(
+                            message,
+                            null,
+                            buildRequestContext(req, resp.code(), debugPayload),
+                            null
+                    );
+                    cb.onError(message);
+                    return;
+                }
+                cb.onSuccess(bytes);
             }
         });
     }
@@ -235,10 +348,10 @@ public final class BackendApi {
         return true;
     }
 
-    private static void emitDebugResponse(String response) {
+    private static void emitDebugResponse(String source, String response) {
         DebugListener listener = debugListener;
         if (listener != null) {
-            listener.onDebugResponse(response);
+            listener.onDebugResponse(source, response);
         }
     }
 
