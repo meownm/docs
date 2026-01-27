@@ -13,6 +13,7 @@ from app import db as db_module
 from app import settings as settings_module
 from app.events import event_bus
 
+JPEG_BYTES = b"\xff\xd8\xff" + (b"jpeg-bytes" * 15) + b"\xff\xd9"
 
 def fetch_rows(db_path: str, query: str, params: tuple = ()) -> list[sqlite3.Row]:
     with sqlite3.connect(db_path) as conn:
@@ -115,7 +116,7 @@ def test_store_nfc_invalid_base64_returns_error_payload(client):
 def test_store_nfc_missing_passport_returns_error_payload(client):
     response = client.post(
         "/nfc",
-        json={"face_image_b64": base64.b64encode(b"face").decode("ascii")},
+        json={"face_image_b64": base64.b64encode(JPEG_BYTES).decode("ascii")},
     )
 
     assert response.status_code == 422
@@ -133,7 +134,7 @@ def test_store_nfc_normalizes_nested_mrz_dates(client):
                     "date_of_expiry": "20300101",
                 }
             },
-            "face_image_b64": base64.b64encode(b"face").decode("ascii"),
+            "face_image_b64": base64.b64encode(JPEG_BYTES).decode("ascii"),
         },
     )
 
@@ -144,7 +145,7 @@ def test_store_nfc_normalizes_nested_mrz_dates(client):
 
 
 def test_store_nfc_and_fetch_face_integration(client):
-    face_bytes = b"fake-image-bytes"
+    face_bytes = JPEG_BYTES
     passport_payload = {
         "doc": "x",
         "document_number": "123456789",

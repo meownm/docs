@@ -30,15 +30,28 @@ class ApiRequestLoggingMiddleware(BaseHTTPMiddleware):
             status_code = response.status_code
             response_headers = dict(response.headers)
             response_headers.pop("content-length", None)
+            content_type = response.headers.get("content-type") or response.media_type
             if isinstance(response, StreamingResponse):
+                if _is_event_stream(response):
+                    response_body = _format_streaming_placeholder(response)
+                    return response
+
+                if _should_capture_stream_body(content_type):
+                    response_body_bytes = await _collect_response_body(response)
+                    response_body = _format_body(response_body_bytes, content_type)
+                    return Response(
+                        content=response_body_bytes,
+                        status_code=response.status_code,
+                        headers=response_headers,
+                        media_type=response.media_type,
+                        background=response.background,
+                    )
+
                 response_body = _format_streaming_placeholder(response)
                 return response
 
             response_body_bytes = await _collect_response_body(response)
-            response_body = _format_body(
-                response_body_bytes,
-                response.headers.get("content-type"),
-            )
+            response_body = _format_body(response_body_bytes, content_type)
             return Response(
                 content=response_body_bytes,
                 status_code=response.status_code,
@@ -97,7 +110,7 @@ class ApiRequestLoggingMiddleware(BaseHTTPMiddleware):
                 await conn.commit()
 
 
-MAX_BODY_SIZE = 64 * 1024
+MAX_BODY_SIZE = 65536
 TEXT_CONTENT_TYPES = (
     "application/json",
     "application/x-www-form-urlencoded",
@@ -141,6 +154,20 @@ def _format_streaming_placeholder(response: Response) -> str:
     content_length = response.headers.get("content-length")
     size = int(content_length) if content_length and content_length.isdigit() else 0
     return _placeholder_body(size)
+
+
+def _is_event_stream(response: Response) -> bool:
+    content_type = response.headers.get("content-type") or response.media_type or ""
+    return content_type.lower().startswith("text/event-stream")
+
+
+def _should_capture_stream_body(content_type: str | None) -> bool:
+    content_type = (content_type or "").lower()
+    if content_type.startswith("multipart/"):
+        return False
+    if content_type.startswith("text/"):
+        return True
+    return any(content_type.startswith(ct) for ct in TEXT_CONTENT_TYPES)
 
 
 async def _collect_response_body(response: Response) -> bytes:

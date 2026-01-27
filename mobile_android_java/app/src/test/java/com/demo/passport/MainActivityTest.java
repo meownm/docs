@@ -67,7 +67,7 @@ public class MainActivityTest {
 
     @Test
     public void buildManualMrzKeys_returnsKeysWhenAllFieldsPresent() {
-        Models.MRZKeys keys = MainActivity.buildManualMrzKeys("AB123", "900101", "300101");
+        Models.MRZKeys keys = MainActivity.buildManualMrzKeys("ab 123", "900101", "300101");
         assertNotNull(keys);
         assertTrue("AB123".equals(keys.document_number));
         assertTrue("900101".equals(keys.date_of_birth));
@@ -84,6 +84,12 @@ public class MainActivityTest {
     @Test
     public void validateMrzInputs_returnsNullWhenValuesAreValid() {
         assertNull(MainActivity.validateMrzInputs("AB123", "900101", "300101"));
+    }
+
+    @Test
+    public void normalizeDocumentNumber_removesSpacesAndUppercases() {
+        assertTrue("AB123".equals(MainActivity.normalizeDocumentNumber(" ab 123 ")));
+        assertNull(MainActivity.normalizeDocumentNumber("   "));
     }
 
     @Test
@@ -144,10 +150,28 @@ public class MainActivityTest {
     }
 
     @Test
+    public void validateNfcResult_returnsErrorWhenFaceImageMissing() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        assertNotNull(MainActivity.validateNfcResult(result));
+    }
+
+    @Test
+    public void validateNfcResult_returnsErrorWhenFaceImageTooSmall() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES - 1];
+        assertNotNull(MainActivity.validateNfcResult(result));
+    }
+
+    @Test
     public void validateNfcResult_returnsNullWhenPassportPresent() {
         Models.NfcResult result = new Models.NfcResult();
         result.passport = new HashMap<>();
         result.passport.put("doc", "123");
+        result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
         assertNull(MainActivity.validateNfcResult(result));
     }
 

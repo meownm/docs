@@ -20,6 +20,7 @@ import java.util.List;
  * Требует реального NFC-чтения из чипа; MRZ используется только для BAC.
  */
 public final class NfcPassportReader {
+    static final int NFC_TIMEOUT_MS = 45000;
 
     public static Models.NfcResult readPassport(Tag tag, Models.MRZKeys mrz) {
         if (mrz == null) {
@@ -36,7 +37,7 @@ public final class NfcPassportReader {
         PassportService service = null;
         try {
             isoDep.connect();
-            isoDep.setTimeout(10000);
+            isoDep.setTimeout(NFC_TIMEOUT_MS);
             service = new PassportService(
                     isoDep,
                     PassportService.NORMAL_MAX_TRANCEIVE_LENGTH,
@@ -85,6 +86,9 @@ public final class NfcPassportReader {
                     throw new IllegalStateException("Unsupported face image format: " + mimeType);
                 }
                 faceBytes = readAllBytes(faceImageInfo.getImageInputStream());
+                if (faceBytes.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
+                    throw new IllegalStateException("Face image is missing or too small.");
+                }
             } catch (Exception e) {
                 throw new IllegalStateException("DG2 read failed: " + e.getMessage(), e);
             }
