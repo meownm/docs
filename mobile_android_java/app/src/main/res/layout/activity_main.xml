@@ -9,19 +9,60 @@
         android:id="@+id/textStatus"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:text="Ready to scan document"
+        android:text="Готово к съемке документа"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
+
+    <ImageView
+        android:id="@+id/imagePreview"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:contentDescription="Превью документа"
+        android:scaleType="centerInside"
+        android:src="@android:drawable/ic_menu_camera"
+        app:layout_constraintTop_toBottomOf="@id/textStatus"
+        app:layout_constraintBottom_toTopOf="@id/btnTakePhoto"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintDimensionRatio="4:3"/>
 
     <Button
         android:id="@+id/btnTakePhoto"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Сделать фото"
-        app:layout_constraintTop_toBottomOf="@id/textStatus"
-        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/imagePreview"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
+
+    <LinearLayout
+        android:id="@+id/resultContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/btnTakePhoto"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <TextView
+            android:id="@+id/textDocumentNumber"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Номер документа: -" />
+
+        <TextView
+            android:id="@+id/textBirthDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Дата рождения: -" />
+
+        <TextView
+            android:id="@+id/textExpiryDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Срок действия: -" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

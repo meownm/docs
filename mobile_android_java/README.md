@@ -1,4 +1,11 @@
 Android Java demo. Open in Android Studio and run.
 
+## Flow
+- При входе отображается превью документа и кнопка съемки.
+- Нажатие кнопки отправляет фото в сервис распознавания.
+- При успешном ответе отображаются распознанные поля на экране и можно перейти к NFC-сканированию.
+- При ошибке показывается всплывающее сообщение и экран возвращается к превью.
+
 ## Tests
-- Unit tests are not included in this project. Use Android instrumentation tests in `app/src/androidTest/java` if you need coverage.
+- Unit и integration tests находятся в `app/src/test/java`.
+- Запуск: `gradlew test`
