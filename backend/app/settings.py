@@ -1,23 +1,34 @@
-from pydantic_settings import BaseSettings
+from __future__ import annotations
+
+import os
+from dataclasses import dataclass
 
 
-class Settings(BaseSettings):
-    backend_host: str = "127.0.0.1"
-    backend_port: int = 30450
+def _env(key: str, default: str) -> str:
+    v = os.getenv(key)
+    return v if v is not None and v != "" else default
 
-    ollama_base_url: str = "http://127.0.0.1:11434"
-    ollama_model: str = "qwen3-vl:30b"
-    ollama_timeout_seconds: int = 120
 
-    data_dir: str = "./data"
-    db_path: str = "./data/app.db"
-    files_dir: str = "./data/files"
+def _env_int(key: str, default: int) -> int:
+    v = os.getenv(key)
+    if v is None or v == "":
+        return default
+    return int(v)
 
-    llm_lang: str = "ru"
 
-    class Config:
-        env_file = ".env"
-        extra = "ignore"
+@dataclass(frozen=True)
+class Settings:
+    # Server
+    host: str = _env("APP_HOST", "127.0.0.1")
+    port: int = _env_int("APP_PORT", 30450)
+
+    # Files
+    files_dir: str = _env("FILES_DIR", "./files")
+
+    # Ollama
+    ollama_base_url: str = _env("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
+    ollama_model: str = _env("OLLAMA_MODEL", "qwen3-vl:30b")
+    ollama_timeout_sec: int = _env_int("OLLAMA_TIMEOUT_SEC", 120)
 
 
 settings = Settings()

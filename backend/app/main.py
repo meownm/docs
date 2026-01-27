@@ -1,26 +1,32 @@
+from __future__ import annotations
+
+import os
+
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
-from .api import router
+from app.api import router
+from app.settings import settings
 
 
 app = FastAPI(title="FastAPI", version="0.1.0")
-
-# API
 app.include_router(router, prefix="/api")
 
-# Web UI (served from backend/app/static)
-app.mount("/", StaticFiles(directory="app/static", html=True), name="static")
 
+# Static (если папка существует)
+static_dir = os.path.join(os.path.dirname(__file__), "static")
+if os.path.isdir(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
-async def init_db() -> None:
-    # re-export for tests / tooling
-    from .db import init_db as _init_db
-    await _init_db()
-
-
-async def ollama_chat_with_image(image_bytes: bytes):
-    # This function is monkeypatched in tests.
-    # In real usage it should call Ollama using settings.ollama_base_url / model and return:
-    # (request_id, {"parsed": {...}, "input_payload": {...}, "ollama_raw": {...}})
-    raise NotImplementedError("ollama_chat_with_image must be implemented or monkeypatched in tests")
+    @app.get("/", response_class=HTMLResponse)
+    async def index():
+        index_path = os.path.join(static_dir, "index.html")
+        if os.path.exists(index_path):
+            with open(index_path, "r", encoding="utf-8") as f:
+                return f.read()
+        return "<html><body>static/index.html not found</body></html>"
+else:
+    @app.get("/", response_class=HTMLResponse)
+    async def index():
+        return "<html><body>Backend is running</body></html>"

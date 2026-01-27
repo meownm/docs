@@ -1,30 +1,20 @@
+from __future__ import annotations
+
 import asyncio
-from dataclasses import dataclass
-from typing import AsyncIterator, Dict, Optional
-
-
-@dataclass
-class Event:
-    event_type: str
-    data: Dict
+from typing import AsyncIterator, Dict, Any
 
 
 class EventBus:
     def __init__(self) -> None:
-        self._queue: "asyncio.Queue[Event]" = asyncio.Queue()
-        self._last: Optional[Event] = None
+        self._queue: asyncio.Queue[Dict[str, Any]] = asyncio.Queue()
 
-    async def publish(self, event: Event) -> None:
-        self._last = event
+    async def publish(self, event: Dict[str, Any]) -> None:
         await self._queue.put(event)
 
-    async def stream(self) -> AsyncIterator[Event]:
-        # On connect, immediately yield the last known event (if any) to make UI recoverable.
-        if self._last is not None:
-            yield self._last
+    async def subscribe(self) -> AsyncIterator[Dict[str, Any]]:
         while True:
-            e = await self._queue.get()
-            yield e
+            event = await self._queue.get()
+            yield event
 
 
-bus = EventBus()
+event_bus = EventBus()
