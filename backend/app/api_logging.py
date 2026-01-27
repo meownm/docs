@@ -6,7 +6,7 @@ from datetime import datetime
 
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.responses import Response
+from starlette.responses import Response, StreamingResponse
 
 from app.db import get_db
 
@@ -28,13 +28,17 @@ class ApiRequestLoggingMiddleware(BaseHTTPMiddleware):
         try:
             response = await call_next(request)
             status_code = response.status_code
+            response_headers = dict(response.headers)
+            response_headers.pop("content-length", None)
+            if isinstance(response, StreamingResponse):
+                response_body = _format_streaming_placeholder(response)
+                return response
+
             response_body_bytes = await _collect_response_body(response)
             response_body = _format_body(
                 response_body_bytes,
                 response.headers.get("content-type"),
             )
-            response_headers = dict(response.headers)
-            response_headers.pop("content-length", None)
             return Response(
                 content=response_body_bytes,
                 status_code=response.status_code,
@@ -131,6 +135,12 @@ def _placeholder_body(size: int) -> str:
         {"placeholder": "binary_or_too_large", "size": size},
         ensure_ascii=False,
     )
+
+
+def _format_streaming_placeholder(response: Response) -> str:
+    content_length = response.headers.get("content-length")
+    size = int(content_length) if content_length and content_length.isdigit() else 0
+    return _placeholder_body(size)
 
 
 async def _collect_response_body(response: Response) -> bytes:
