@@ -28,6 +28,37 @@
     const statusEl = document.getElementById("status");
     const faceEl = document.getElementById("face");
     const metaEl = document.getElementById("meta");
+    const ERROR_REPORT_INTERVAL_MS = 5000;
+    let lastErrorReportAt = 0;
+
+    function shouldReportError() {
+      const now = Date.now();
+      if (now - lastErrorReportAt < ERROR_REPORT_INTERVAL_MS) {
+        return false;
+      }
+      lastErrorReportAt = now;
+      return true;
+    }
+
+    function reportError({ error_message, stacktrace, context_json }) {
+      if (!shouldReportError()) {
+        return;
+      }
+      const payload = {
+        platform: "web",
+        error_message: error_message || "Unknown error",
+        stacktrace: stacktrace || null,
+        context_json: context_json || null,
+        user_agent: navigator.userAgent,
+      };
+
+      fetch("/api/errors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+        keepalive: true,
+      }).catch(() => {});
+    }
 
     function connect() {
       const es = new EventSource("/api/events");
@@ -43,12 +74,56 @@
       });
       es.onerror = () => {
         statusEl.textContent = "Потеряно соединение. Переподключаюсь...";
+        reportError({
+          error_message: "EventSource connection error",
+          context_json: {
+            stream_url: "/api/events",
+            ready_state: es.readyState,
+          },
+        });
         es.close();
         setTimeout(connect, 1000);
       };
     }
 
     connect();
+
+    window.onerror = (message, source, lineno, colno, error) => {
+      reportError({
+        error_message: String(message),
+        stacktrace: error && error.stack ? error.stack : null,
+        context_json: {
+          source,
+          lineno,
+          colno,
+        },
+      });
+    };
+
+    window.addEventListener("unhandledrejection", (event) => {
+      let reasonMessage = "Unhandled promise rejection";
+      let reasonStack = null;
+      if (event.reason instanceof Error) {
+        reasonMessage = event.reason.message || reasonMessage;
+        reasonStack = event.reason.stack || null;
+      } else if (typeof event.reason === "string") {
+        reasonMessage = event.reason;
+      } else {
+        try {
+          reasonMessage = JSON.stringify(event.reason);
+        } catch (e) {
+          reasonMessage = String(event.reason);
+        }
+      }
+
+      reportError({
+        error_message: "Unhandled promise rejection: " + reasonMessage,
+        stacktrace: reasonStack,
+        context_json: {
+          reason: reasonMessage,
+        },
+      });
+    });
   </script>
 </body>
 </html>

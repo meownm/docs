@@ -8,6 +8,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
@@ -29,6 +30,7 @@ public class BackendApiTest {
     @After
     public void tearDown() throws Exception {
         BackendConfig.setBaseUrlForTesting(BackendConfig.DEFAULT_BASE_URL);
+        BackendApi.resetErrorReportDebounceForTesting();
         server.shutdown();
     }
 
@@ -304,5 +306,60 @@ public class BackendApiTest {
         assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
         assertNotNull(error.get());
         assertTrue(error.get().contains("HTTP 400"));
+    }
+
+    @Test
+    public void reportError_postsPayloadWithContext() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        JsonObject context = JsonParser.parseString(
+                "{\"request_url\":\"https://example.com/recognize\",\"method\":\"POST\",\"http_status\":500,\"response_body\":\"boom\"}"
+        ).getAsJsonObject();
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.reportError("HTTP 500: boom", "trace", context, new BackendApi.Callback<Void>() {
+            @Override
+            public void onSuccess(Void value) {
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(String message) {
+                error.set(message);
+                latch.countDown();
+            }
+        });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertEquals(null, error.get());
+
+        RecordedRequest request = server.takeRequest(5, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertEquals("POST", request.getMethod());
+        assertEquals("/errors", request.getPath());
+        String body = request.getBody().readUtf8();
+        assertTrue(body.contains("\"platform\":\"android\""));
+        assertTrue(body.contains("\"error_message\":\"HTTP 500: boom\""));
+        assertTrue(body.contains("\"stacktrace\":\"trace\""));
+        assertTrue(body.contains("\"context_json\""));
+        assertTrue(body.contains("\"http_status\":500"));
+        assertTrue(body.contains("\"response_body\":\"boom\""));
+    }
+
+    @Test
+    public void reportError_debounceSkipsSecondRequest() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        BackendApi.setErrorReportIntervalMsForTesting(10000);
+        BackendApi.reportError("first", null, null, null);
+        BackendApi.reportError("second", null, null, null);
+
+        RecordedRequest request = server.takeRequest(5, TimeUnit.SECONDS);
+        assertNotNull(request);
+
+        RecordedRequest second = server.takeRequest(500, TimeUnit.MILLISECONDS);
+        assertEquals(null, second);
     }
 }

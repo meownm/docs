@@ -2,12 +2,15 @@ package com.demo.passport;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
+import java.io.PrintWriter;
+import java.io.StringWriter;
 import java.util.concurrent.TimeUnit;
 import okhttp3.*;
 
 import java.io.IOException;
 
 public final class BackendApi {
+    private static final long DEFAULT_ERROR_REPORT_INTERVAL_MS = 5000;
     private static final OkHttpClient client = new OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .writeTimeout(30, TimeUnit.SECONDS)
@@ -15,6 +18,8 @@ public final class BackendApi {
             .callTimeout(120, TimeUnit.SECONDS)
             .build();
     private static final Gson gson = new Gson();
+    private static long errorReportIntervalMs = DEFAULT_ERROR_REPORT_INTERVAL_MS;
+    private static long lastErrorReportAtMs = 0;
 
     public interface Callback<T> {
         void onSuccess(T value);
@@ -39,27 +44,55 @@ public final class BackendApi {
         client.newCall(req).enqueue(new okhttp3.Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                cb.onError("HTTP failure: " + e.getMessage());
+                String message = "HTTP failure: " + e.getMessage();
+                reportError(
+                        message,
+                        stackTraceToString(e),
+                        buildRequestContext(req, null, null),
+                        null
+                );
+                cb.onError(message);
             }
 
             @Override
             public void onResponse(Call call, Response resp) throws IOException {
                 String s = resp.body() != null ? resp.body().string() : "";
                 if (!resp.isSuccessful()) {
-                    cb.onError("HTTP " + resp.code() + ": " + s);
+                    String message = "HTTP " + resp.code() + ": " + s;
+                    reportError(
+                            message,
+                            null,
+                            buildRequestContext(req, resp.code(), s),
+                            null
+                    );
+                    cb.onError(message);
                     return;
                 }
                 JsonObject obj = gson.fromJson(s, JsonObject.class);
 
                 // Ожидаем либо поля, либо error
                 if (obj.has("error")) {
-                    cb.onError("RECOGNIZE_ERROR: " + obj.get("error").toString());
+                    String message = "RECOGNIZE_ERROR: " + obj.get("error").toString();
+                    reportError(
+                            message,
+                            null,
+                            buildRequestContext(req, resp.code(), s),
+                            null
+                    );
+                    cb.onError(message);
                     return;
                 }
 
                 Models.MRZKeys mrz = parseMrz(obj);
                 if (mrz == null) {
-                    cb.onError("RECOGNIZE_ERROR: missing MRZ fields");
+                    String message = "RECOGNIZE_ERROR: missing MRZ fields";
+                    reportError(
+                            message,
+                            null,
+                            buildRequestContext(req, resp.code(), s),
+                            null
+                    );
+                    cb.onError(message);
                     return;
                 }
                 cb.onSuccess(mrz);
@@ -77,19 +110,103 @@ public final class BackendApi {
         client.newCall(req).enqueue(new okhttp3.Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                cb.onError("HTTP failure: " + e.getMessage());
+                String message = "HTTP failure: " + e.getMessage();
+                reportError(
+                        message,
+                        stackTraceToString(e),
+                        buildRequestContext(req, null, null),
+                        null
+                );
+                cb.onError(message);
             }
 
             @Override
             public void onResponse(Call call, Response resp) throws IOException {
                 String s = resp.body() != null ? resp.body().string() : "";
                 if (!resp.isSuccessful()) {
-                    cb.onError("HTTP " + resp.code() + ": " + s);
+                    String message = "HTTP " + resp.code() + ": " + s;
+                    reportError(
+                            message,
+                            null,
+                            buildRequestContext(req, resp.code(), s),
+                            null
+                    );
+                    cb.onError(message);
                     return;
                 }
                 cb.onSuccess(null);
             }
         });
+    }
+
+    public static void reportError(
+            String errorMessage,
+            String stacktrace,
+            JsonObject contextJson,
+            Callback<Void> cb
+    ) {
+        if (!shouldReportError()) {
+            if (cb != null) {
+                cb.onSuccess(null);
+            }
+            return;
+        }
+        JsonObject payload = new JsonObject();
+        payload.addProperty("platform", "android");
+        payload.addProperty("error_message", errorMessage);
+        if (stacktrace != null) {
+            payload.addProperty("stacktrace", stacktrace);
+        }
+        if (contextJson != null) {
+            payload.add("context_json", contextJson);
+        }
+
+        String json = gson.toJson(payload);
+        Request req = new Request.Builder()
+                .url(BackendConfig.getBaseUrl() + "/errors")
+                .post(RequestBody.create(json, MediaType.parse("application/json")))
+                .build();
+
+        client.newCall(req).enqueue(new okhttp3.Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                if (cb != null) {
+                    cb.onError("HTTP failure: " + e.getMessage());
+                }
+            }
+
+            @Override
+            public void onResponse(Call call, Response resp) {
+                if (cb == null) {
+                    resp.close();
+                    return;
+                }
+                if (!resp.isSuccessful()) {
+                    cb.onError("HTTP " + resp.code());
+                } else {
+                    cb.onSuccess(null);
+                }
+                resp.close();
+            }
+        });
+    }
+
+    static void setErrorReportIntervalMsForTesting(long intervalMs) {
+        errorReportIntervalMs = intervalMs;
+    }
+
+    static void resetErrorReportDebounceForTesting() {
+        lastErrorReportAtMs = 0;
+        errorReportIntervalMs = DEFAULT_ERROR_REPORT_INTERVAL_MS;
+    }
+
+    private static boolean shouldReportError() {
+        long now = System.currentTimeMillis();
+        if (now - lastErrorReportAtMs < errorReportIntervalMs) {
+            return false;
+        }
+        lastErrorReportAtMs = now;
+        return true;
     }
 
     private static Models.MRZKeys parseMrz(JsonObject obj) {
@@ -105,6 +222,27 @@ public final class BackendApi {
         mrz.date_of_birth = mrzObj.get("date_of_birth").getAsString();
         mrz.date_of_expiry = mrzObj.get("date_of_expiry").getAsString();
         return mrz;
+    }
+
+    private static JsonObject buildRequestContext(Request req, Integer httpStatus, String responseBody) {
+        JsonObject context = new JsonObject();
+        context.addProperty("request_url", req.url().toString());
+        context.addProperty("method", req.method());
+        if (httpStatus != null) {
+            context.addProperty("http_status", httpStatus);
+        }
+        if (responseBody != null) {
+            context.addProperty("response_body", responseBody);
+        }
+        return context;
+    }
+
+    private static String stackTraceToString(Throwable t) {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+        t.printStackTrace(pw);
+        pw.flush();
+        return sw.toString();
     }
 
     private BackendApi() {}
