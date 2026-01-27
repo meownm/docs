@@ -14,7 +14,9 @@ public final class NfcPassportReader {
         if (tag == null) {
             throw new IllegalStateException("NFC tag is required for reading passport data.");
         }
-        throw new UnsupportedOperationException("NFC reading is not implemented; read data from chip.");
+        throw new UnsupportedOperationException(
+                "NFC reading is not implemented; read data from chip and do not fill passport from MRZ keys."
+        );
     }
 
     private NfcPassportReader() {}
