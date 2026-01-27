@@ -25,7 +25,7 @@ public final class BackendApi {
                 .build();
 
         Request req = new Request.Builder()
-                .url(BackendConfig.getBaseUrl() + "/api/passport/recognize")
+                .url(BackendConfig.getBaseUrl() + "/recognize")
                 .post(body)
                 .build();
 
@@ -63,7 +63,7 @@ public final class BackendApi {
     public static void sendNfcRaw(JsonObject payload, Callback<Void> cb) {
         String json = gson.toJson(payload);
         Request req = new Request.Builder()
-                .url(BackendConfig.getBaseUrl() + "/api/passport/nfc")
+                .url(BackendConfig.getBaseUrl() + "/nfc")
                 .post(RequestBody.create(json, MediaType.parse("application/json")))
                 .build();
 

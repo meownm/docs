@@ -8,6 +8,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
+import com.google.gson.JsonParser;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
@@ -65,7 +66,7 @@ public class BackendApiTest {
         RecordedRequest request = server.takeRequest(5, TimeUnit.SECONDS);
         assertNotNull(request);
         assertEquals("POST", request.getMethod());
-        assertEquals("/api/passport/recognize", request.getPath());
+        assertEquals("/recognize", request.getPath());
         assertTrue(request.getHeader("Content-Type").contains("multipart/form-data"));
     }
 
@@ -146,5 +147,63 @@ public class BackendApiTest {
         assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
         assertNotNull(error.get());
         assertTrue(error.get().contains("missing MRZ fields"));
+    }
+
+    @Test
+    public void sendNfcRaw_postsJsonPayload() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.sendNfcRaw(JsonParser.parseString("{\"foo\":\"bar\"}").getAsJsonObject(),
+                new BackendApi.Callback<Void>() {
+                    @Override
+                    public void onSuccess(Void value) {
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        error.set(message);
+                        latch.countDown();
+                    }
+                });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertEquals(null, error.get());
+
+        RecordedRequest request = server.takeRequest(5, TimeUnit.SECONDS);
+        assertNotNull(request);
+        assertEquals("POST", request.getMethod());
+        assertEquals("/nfc", request.getPath());
+        assertTrue(request.getHeader("Content-Type").contains("application/json"));
+        assertTrue(request.getBody().readUtf8().contains("\"foo\":\"bar\""));
+    }
+
+    @Test
+    public void sendNfcRaw_handlesHttpError() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(400).setBody("bad nfc"));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.sendNfcRaw(JsonParser.parseString("{\"baz\":1}").getAsJsonObject(),
+                new BackendApi.Callback<Void>() {
+                    @Override
+                    public void onSuccess(Void value) {
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        error.set(message);
+                        latch.countDown();
+                    }
+                });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertNotNull(error.get());
+        assertTrue(error.get().contains("HTTP 400"));
     }
 }
