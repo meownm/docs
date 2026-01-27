@@ -2,6 +2,7 @@ package com.demo.passport;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertThrows;
 
 import android.content.Context;
@@ -29,6 +30,14 @@ public class FileProviderAuthorityInstrumentedTest {
                 .resolveContentProvider(expectedAuthority, 0);
         assertNotNull(providerInfo);
         assertEquals(expectedAuthority, providerInfo.authority);
+    }
+
+    @Test
+    public void manifestAuthority_returnsNullForUnexpectedAuthority() {
+        Context context = ApplicationProvider.getApplicationContext();
+        ProviderInfo providerInfo = context.getPackageManager()
+                .resolveContentProvider("com.demo.passport.unexpected.fileprovider", 0);
+        assertNull(providerInfo);
     }
 
     @Test

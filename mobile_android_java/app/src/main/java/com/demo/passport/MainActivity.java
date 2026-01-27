@@ -255,9 +255,10 @@ public class MainActivity extends AppCompatActivity {
             cameraProviderFuture = ProcessCameraProvider.getInstance(this);
             future = cameraProviderFuture;
         }
-        future.addListener(() -> {
+        final ListenableFuture<ProcessCameraProvider> cameraFuture = future;
+        cameraFuture.addListener(() -> {
             try {
-                cameraProvider = future.get();
+                cameraProvider = cameraFuture.get();
                 bindUseCases(cameraProvider);
             } catch (Exception e) {
                 Log.e(TAG, "Failed to bind camera preview", e);
