@@ -124,6 +124,26 @@ async def _nfc_impl(payload: dict):
     with open(face_path, "wb") as f:
         f.write(face_bytes)
 
+    async with get_db() as conn:
+        await conn.execute(
+            """
+            INSERT INTO nfc_scans (
+                scan_id,
+                ts_utc,
+                passport_json,
+                face_image_path
+            )
+            VALUES (?, ?, ?, ?)
+            """,
+            (
+                scan_id,
+                datetime.utcnow().isoformat(),
+                json.dumps(passport, ensure_ascii=False),
+                face_path,
+            ),
+        )
+        await conn.commit()
+
     await event_bus.publish({
         "type": "nfc_scan_success",
         "scan_id": scan_id,
@@ -158,7 +178,9 @@ async def get_nfc_face(scan_id: str):
 
 async def _event_stream() -> AsyncIterator[str]:
     async for event in event_bus.subscribe():
-        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        event_type = event.get("type", "message")
+        data = json.dumps(event, ensure_ascii=False)
+        yield f"event: {event_type}\ndata: {data}\n\n"
 
 
 # --- Канон мобилки ---

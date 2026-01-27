@@ -1,5 +1,6 @@
 import base64
 import json
+import asyncio
 import sqlite3
 
 import pytest
@@ -10,10 +11,17 @@ from app.settings import Settings, settings
 from app import api as api_module
 from app import db as db_module
 from app import settings as settings_module
+from app.events import event_bus
+
+
+def fetch_rows(db_path: str, query: str, params: tuple = ()) -> list[sqlite3.Row]:
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        return conn.execute(query, params).fetchall()
 
 
 @pytest.fixture()
-def client(tmp_path, monkeypatch):
+def patched_settings(tmp_path, monkeypatch):
     data_dir = tmp_path / "data"
     files_dir = data_dir / "files"
     db_path = data_dir / "app.db"
@@ -31,6 +39,11 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setattr(settings_module, "settings", patched_settings)
     monkeypatch.setattr(api_module, "settings", patched_settings)
     monkeypatch.setattr(db_module, "settings", patched_settings)
+    return patched_settings
+
+
+@pytest.fixture()
+def client(patched_settings):
     with TestClient(app) as test_client:
         yield test_client
 
@@ -56,8 +69,8 @@ def test_recognize_mobile_success(client, monkeypatch):
     payload = response.json()
     assert payload == {
         "document_number": "123456789",
-        "date_of_birth": "19900101",
-        "date_of_expiry": "20300101",
+        "date_of_birth": "1990-01-01",
+        "date_of_expiry": "2030-01-01",
     }
 
 
@@ -95,6 +108,8 @@ def test_store_nfc_invalid_base64_returns_error_payload(client):
 
     assert response.status_code == 422
     assert response.json()["detail"].startswith("Invalid face_image_b64:")
+    rows = fetch_rows(settings_module.settings.db_path, "SELECT * FROM nfc_scans")
+    assert rows == []
 
 
 def test_store_nfc_missing_passport_returns_error_payload(client):
@@ -109,10 +124,11 @@ def test_store_nfc_missing_passport_returns_error_payload(client):
 
 def test_store_nfc_and_fetch_face_integration(client):
     face_bytes = b"fake-image-bytes"
+    passport_payload = {"doc": "x"}
     response = client.post(
         "/nfc",
         json={
-            "passport": {"doc": "x"},
+            "passport": passport_payload,
             "face_image_b64": base64.b64encode(face_bytes).decode("ascii"),
         },
     )
@@ -186,3 +202,54 @@ def test_store_app_error_log_missing_required_fields(client):
     response = client.post("/errors", json={"error_message": "missing platform"})
 
     assert response.status_code == 422
+async def _drain_event_bus():
+    while True:
+        try:
+            event_bus._queue.get_nowait()
+        except asyncio.QueueEmpty:
+            break
+
+
+@pytest.mark.anyio
+async def test_sse_event_format_and_payload(patched_settings):
+    await _drain_event_bus()
+    event_payload = {
+        "type": "nfc_scan_success",
+        "scan_id": "scan-1",
+        "face_image_url": "/api/nfc/scan-1/face.jpg",
+        "passport": {"doc": "x"},
+    }
+
+    stream = api_module._event_stream()
+    await event_bus.publish(event_payload)
+    message = await stream.__anext__()
+
+    lines = [line for line in message.splitlines() if line]
+    assert lines[0] == "event: nfc_scan_success"
+    assert lines[1].startswith("data: ")
+    payload = json.loads(lines[1].removeprefix("data: ").strip())
+    assert payload == event_payload
+
+
+@pytest.mark.anyio
+async def test_sse_event_missing_type_defaults_message(patched_settings):
+    await _drain_event_bus()
+    event_payload = {"scan_id": "scan-2"}
+
+    stream = api_module._event_stream()
+    await event_bus.publish(event_payload)
+    message = await stream.__anext__()
+
+    lines = [line for line in message.splitlines() if line]
+    assert lines[0] == "event: message"
+    payload = json.loads(lines[1].removeprefix("data: ").strip())
+    assert payload == event_payload
+    rows = fetch_rows(
+        settings_module.settings.db_path,
+        "SELECT * FROM nfc_scans WHERE scan_id = ?",
+        (scan_id,),
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["face_image_path"].endswith(f"{scan_id}_face.jpg")
+    assert json.loads(row["passport_json"]) == passport_payload
