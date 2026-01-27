@@ -61,7 +61,9 @@ Foreground dispatch NFC включается только на этапе ожи
 ```
 
 ### POST `/nfc`
-Вход: JSON (параметры) + фото (base64).
+Вход: JSON (обязательные поля):
+- `passport` — объект, не пустой.
+- `face_image_b64` — строка с base64 (обязательная, валидная).
 
 Выход 200:
 ```json
@@ -70,9 +72,13 @@ Foreground dispatch NFC включается только на этапе ожи
 }
 ```
 
-Выход 200 (ошибка — строка):
+Выход 422 (ошибка — строка):
 ```json
-{ "error": "Invalid face_image_b64: ..." }
+{ "detail": "Invalid passport" }
+```
+
+```json
+{ "detail": "Invalid face_image_b64: ..." }
 ```
 
 ### GET `/events`
@@ -92,8 +98,9 @@ data: {"type":"nfc_scan_success","scan_id":"...","face_image_url":"/api/nfc/<sca
 Дублирующие пути с `/api`, например: `/api/recognize`, `/api/nfc`, `/api/events`.
 Дополнительно доступны `/passport/recognize` и `/passport/nfc` (и их варианты с `/api`).
 
-## Логирование входов/выходов LLM
+## Логирование входов/выходов LLM и NFC
 Backend сохраняет вход/выход LLM в SQLite: `backend/data/app.db`, таблица `llm_logs`.
+NFC-сканы сохраняются в таблице `nfc_scans` с данными паспорта и путём к фото лица.
 
 ## Тесты
 Backend использует `pytest` для позитивных/негативных и интеграционных сценариев. Запуск:

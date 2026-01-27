@@ -11,8 +11,8 @@
 | R-05 | API: принять картинку, вернуть параметры заграна либо ошибку | implemented | POST /api/passport/recognize |
 | R-06 | Мобилка при 200 показывает данные и предлагает NFC | implemented | MainActivity.java |
 | R-07 | Мобилка NFC: извлекает параметры и фото, отправляет в backend | implemented | MainActivity.java + NfcPassportReader.java + NfcPayloadBuilder.java |
-| R-08 | Backend сохраняет NFC данные, web получает сигнал и показывает фото | implemented | nfc_scans + SSE /api/events + web UI |
+| R-08 | Backend сохраняет NFC данные, web получает сигнал и показывает фото | implemented | nfc_scans insert + SSE /api/events + web UI |
 | R-09 | Мобилка на Java | implemented | mobile_android_java |
-| R-10 | Логировать входы/выходы LLM в локальной SQLite | implemented | llm_logs table + insert in recognize |
+| R-10 | Логировать входы/выходы LLM в локальной SQLite | implemented | llm_logs table + insert in backend/app/llm.py |
 | R-11 | Проект демонстрационный, без развития | implemented | README.md |
 | R-12 | Логировать HTTP запросы в SQLite (успехи и ошибки) | implemented | backend/app/api_logging.py, backend/app/db.py, backend/tests/test_api_logging.py |
