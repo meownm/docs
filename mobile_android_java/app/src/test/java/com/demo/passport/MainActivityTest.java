@@ -102,6 +102,16 @@ public class MainActivityTest {
     }
 
     @Test
+    public void validateMrzInputs_returnsCombinedErrorWhenBothDatesInvalid() {
+        assertNotNull(MainActivity.validateMrzInputs("AB123", "1990-01-01", "2030-01-01"));
+    }
+
+    @Test
+    public void validateMrzKeys_returnsErrorWhenKeysMissing() {
+        assertNotNull(MainActivity.validateMrzKeys(null));
+    }
+
+    @Test
     public void tryBuildNfcPayload_returnsPayloadForValidResult() {
         Models.NfcResult result = new Models.NfcResult();
         result.passport = new HashMap<>();
