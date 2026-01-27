@@ -86,7 +86,10 @@ public final class NfcPassportReader {
                 FaceImageInfo faceImageInfo = faceImages.get(0);
                 String mimeType = faceImageInfo.getMimeType();
                 if (!isSupportedFaceMimeType(mimeType)) {
-                    throw new IllegalStateException("Unsupported face image format: " + mimeType);
+                    throw new IllegalStateException(
+                            "Unsupported face image format (expected image/jpeg, image/jp2, image/jpeg2000): "
+                                    + mimeType
+                    );
                 }
                 faceBytes = readAllBytes(faceImageInfo.getImageInputStream());
                 if (faceBytes.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
