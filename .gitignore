@@ -9,3 +9,5 @@ backend/.env
 /mobile_android_java/app/build
 /mobile_android_java/.idea
 /mobile_android_java/.gradle
+*.lock
+*.lock
