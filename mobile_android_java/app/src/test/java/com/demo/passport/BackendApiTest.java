@@ -71,6 +71,38 @@ public class BackendApiTest {
     }
 
     @Test
+    public void recognizePassport_parsesMrzFromFlatResponse() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody("{\"document_number\":\"456\",\"date_of_birth\":\"1985-05-05\",\"date_of_expiry\":\"2035-05-05\"}"));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Models.MRZKeys> result = new AtomicReference<>();
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.recognizePassport(new byte[] {0x03, 0x04}, new BackendApi.Callback<Models.MRZKeys>() {
+            @Override
+            public void onSuccess(Models.MRZKeys value) {
+                result.set(value);
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(String message) {
+                error.set(message);
+                latch.countDown();
+            }
+        });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertNotNull(result.get());
+        assertEquals("456", result.get().document_number);
+        assertEquals("1985-05-05", result.get().date_of_birth);
+        assertEquals("2035-05-05", result.get().date_of_expiry);
+        assertEquals(null, error.get());
+    }
+
+    @Test
     public void recognizePassport_handlesHttpError() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(500).setBody("boom"));
 
