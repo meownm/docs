@@ -94,13 +94,31 @@ data: {"type":"nfc_scan_success","scan_id":"...","face_image_url":"/api/nfc/<sca
 ### GET `/nfc/{scan_id}/face.jpg`
 Возвращает фото лица из NFC‑чипа.
 
+### POST `/errors`
+Вход: JSON (обязательные поля):
+- `platform` — строка (ios/android/web).
+- `error_message` — строка.
+Опционально: `ts_utc`, `app_version`, `stacktrace`, `context_json`, `user_agent`, `device_info`, `request_id`.
+
+Выход 200:
+```json
+{
+  "status": "stored",
+  "id": 123
+}
+```
+
 ### Swagger/Web
 Дублирующие пути с `/api`, например: `/api/recognize`, `/api/nfc`, `/api/events`.
 Дополнительно доступны `/passport/recognize` и `/passport/nfc` (и их варианты с `/api`).
+Также дублируется `/errors` -> `/api/errors`.
 
 ## Логирование входов/выходов LLM и NFC
 Backend сохраняет вход/выход LLM в SQLite: `backend/data/app.db`, таблица `llm_logs`.
 NFC-сканы сохраняются в таблице `nfc_scans` с данными паспорта и путём к фото лица.
+
+## Логирование ошибок приложения
+Backend сохраняет логи ошибок приложений в SQLite: `backend/data/app.db`, таблица `app_error_logs`.
 
 ## Тесты
 Backend использует `pytest` для позитивных/негативных и интеграционных сценариев. Запуск:
