@@ -53,8 +53,8 @@ def test_recognize_mobile_success(client, monkeypatch):
         return "req-1", json.dumps(
             {
                 "document_number": "123456789",
-                "date_of_birth": "19900101",
-                "date_of_expiry": "20300101",
+                "date_of_birth": "1990-01-01",
+                "date_of_expiry": "2030-01-01",
             }
         )
 
@@ -139,6 +139,15 @@ def test_store_nfc_and_fetch_face_integration(client):
     face_response = client.get(f"/nfc/{scan_id}/face.jpg")
     assert face_response.status_code == 200
     assert face_response.content == face_bytes
+    rows = fetch_rows(
+        settings_module.settings.db_path,
+        "SELECT * FROM nfc_scans WHERE scan_id = ?",
+        (scan_id,),
+    )
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["face_image_path"].endswith(f"{scan_id}_face.jpg")
+    assert json.loads(row["passport_json"]) == passport_payload
 
 
 def _fetch_error_log(db_path: str, request_id: str):
@@ -244,12 +253,3 @@ async def test_sse_event_missing_type_defaults_message(patched_settings):
     assert lines[0] == "event: message"
     payload = json.loads(lines[1].removeprefix("data: ").strip())
     assert payload == event_payload
-    rows = fetch_rows(
-        settings_module.settings.db_path,
-        "SELECT * FROM nfc_scans WHERE scan_id = ?",
-        (scan_id,),
-    )
-    assert len(rows) == 1
-    row = rows[0]
-    assert row["face_image_path"].endswith(f"{scan_id}_face.jpg")
-    assert json.loads(row["passport_json"]) == passport_payload
