@@ -7,18 +7,35 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import router
+from app.db import init_db
 
 
 app = FastAPI(title="FastAPI", version="0.1.0")
 
+
+@app.on_event("startup")
+async def on_startup() -> None:
+    # Инициализация БД:
+    # - создание файла
+    # - создание таблиц (llm_logs, nfc_scans, api_request_logs)
+    await init_db()
+
+
+# =========================
+# API
+# =========================
+
 # Мобилка-канон: пути без /api
 app.include_router(router)
 
-# Swagger/Web: те же пути, но с /api
+# Swagger / Web: те же пути, но с /api
 app.include_router(router, prefix="/api")
 
 
-# Static UI (если папка существует)
+# =========================
+# Static UI
+# =========================
+
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")

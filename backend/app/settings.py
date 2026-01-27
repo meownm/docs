@@ -29,6 +29,7 @@ class Settings:
     ollama_base_url: str = _env("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
     ollama_model: str = _env("OLLAMA_MODEL", "qwen3-vl:30b")
     ollama_timeout_sec: int = _env_int("OLLAMA_TIMEOUT_SEC", 120)
+    db_path: str = _env("DB_PATH", "./data/app.db")
 
 
 settings = Settings()
