@@ -1,6 +1,8 @@
 package com.demo.passport;
 
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
 import org.junit.Test;
@@ -57,5 +59,21 @@ public class MainActivityTest {
     @Test
     public void isFileProviderAuthorityValid_returnsFalseForMismatch() {
         assertFalse(MainActivity.isFileProviderAuthorityValid("com.demo.passport", "com.demo.other.fileprovider"));
+    }
+
+    @Test
+    public void buildManualMrzKeys_returnsKeysWhenAllFieldsPresent() {
+        Models.MRZKeys keys = MainActivity.buildManualMrzKeys("AB123", "1990-01-01", "2030-01-01");
+        assertNotNull(keys);
+        assertTrue("AB123".equals(keys.document_number));
+        assertTrue("1990-01-01".equals(keys.date_of_birth));
+        assertTrue("2030-01-01".equals(keys.date_of_expiry));
+    }
+
+    @Test
+    public void buildManualMrzKeys_returnsNullWhenAnyFieldMissing() {
+        assertNull(MainActivity.buildManualMrzKeys("", "1990-01-01", "2030-01-01"));
+        assertNull(MainActivity.buildManualMrzKeys("AB123", "", "2030-01-01"));
+        assertNull(MainActivity.buildManualMrzKeys("AB123", "1990-01-01", ""));
     }
 }
