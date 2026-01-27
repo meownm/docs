@@ -39,8 +39,8 @@ def test_recognize_mobile_success(client, monkeypatch):
         return "req-1", json.dumps(
             {
                 "document_number": "123456789",
-                "date_of_birth": "1990-01-01",
-                "date_of_expiry": "2030-01-01",
+                "date_of_birth": "19900101",
+                "date_of_expiry": "20300101",
             }
         )
 
@@ -92,8 +92,18 @@ def test_store_nfc_invalid_base64_returns_error_payload(client):
         json={"passport": {"doc": "x"}, "face_image_b64": "not-base64"},
     )
 
-    assert response.status_code == 200
-    assert response.json()["error"].startswith("Invalid face_image_b64:")
+    assert response.status_code == 422
+    assert response.json()["detail"].startswith("Invalid face_image_b64:")
+
+
+def test_store_nfc_missing_passport_returns_error_payload(client):
+    response = client.post(
+        "/nfc",
+        json={"face_image_b64": base64.b64encode(b"face").decode("ascii")},
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {"detail": "Invalid passport"}
 
 
 def test_store_nfc_and_fetch_face_integration(client):
