@@ -13,7 +13,10 @@ def _env_int(key: str, default: int) -> int:
     v = os.getenv(key)
     if v is None or v == "":
         return default
-    return int(v)
+    try:
+        return int(v)
+    except ValueError:
+        return default
 
 
 @dataclass

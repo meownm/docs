@@ -4,6 +4,7 @@
 1. Ввести `document_number` + даты (в любом допустимом формате) вручную.
    - Ожидаемо: мобильное приложение нормализует и показывает `YYMMDD` в состоянии/отладке.
    - Ожидаемо: при возврате в `CAMERA`-state превью камеры не остается пустым (при наличии permissions).
+   - Ожидаемо: лишние переходы между `CAMERA`/`ERROR` не приводят к повторному биндингу без смены состояния.
 2. Запустить NFC-сценарий и дождаться результата.
    - Ожидаемо: чтение NFC выполняется в background (UI не блокируется).
    - Ожидаемо: есть ненулевой `faceImageJpeg` до отправки на backend.
@@ -89,6 +90,7 @@
 
 ## Backend env compatibility
 - Backend читает `BACKEND_HOST`/`BACKEND_PORT` и `OLLAMA_TIMEOUT_SECONDS` с fallback на `APP_HOST`/`APP_PORT` и `OLLAMA_TIMEOUT_SEC`.
+- Некорректные числовые значения (например, `BACKEND_PORT=abc`) игнорируются и заменяются дефолтами.
 - Проверка: `backend/tests/test_settings_env.py`, `backend/tests/test_settings_env_integration.py`.
 
 ## SSE маршруты

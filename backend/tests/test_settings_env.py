@@ -56,3 +56,17 @@ def test_settings_env_falls_back_when_backend_empty(monkeypatch):
     assert settings.host == "10.0.0.2"
     assert settings.port == 3333
     assert settings.ollama_timeout_sec == 180
+
+
+def test_settings_env_ignores_invalid_ints(monkeypatch):
+    settings = _load_settings(
+        monkeypatch,
+        {
+            "APP_PORT": "30450",
+            "BACKEND_PORT": "not-a-number",
+            "OLLAMA_TIMEOUT_SECONDS": "invalid",
+        },
+    )
+
+    assert settings.port == 30450
+    assert settings.ollama_timeout_sec == 120
