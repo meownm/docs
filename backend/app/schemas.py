@@ -21,6 +21,7 @@ class RecognizeResponse(BaseModel):
 
 
 class NFCPayload(BaseModel):
+    # passport parameters extracted from NFC (DG1 etc.); for demo keep generic
     passport: Dict[str, Any]
     face_image_b64: str
 
