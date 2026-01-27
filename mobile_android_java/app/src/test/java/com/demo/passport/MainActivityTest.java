@@ -20,4 +20,26 @@ public class MainActivityTest {
         assertFalse(MainActivity.shouldBindCamera(MainActivity.State.RESULT));
         assertFalse(MainActivity.shouldBindCamera(MainActivity.State.ERROR));
     }
+
+    @Test
+    public void buildFileProviderAuthority_buildsExpectedAuthority() {
+        String authority = MainActivity.buildFileProviderAuthority("com.demo.passport");
+        assertTrue(MainActivity.isFileProviderAuthorityValid("com.demo.passport", authority));
+    }
+
+    @Test
+    public void buildFileProviderAuthority_rejectsMissingPackageName() {
+        boolean threw = false;
+        try {
+            MainActivity.buildFileProviderAuthority("");
+        } catch (IllegalArgumentException e) {
+            threw = true;
+        }
+        assertTrue(threw);
+    }
+
+    @Test
+    public void isFileProviderAuthorityValid_returnsFalseForMismatch() {
+        assertFalse(MainActivity.isFileProviderAuthorityValid("com.demo.passport", "com.demo.other.fileprovider"));
+    }
 }

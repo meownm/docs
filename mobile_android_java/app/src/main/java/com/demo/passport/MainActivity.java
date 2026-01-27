@@ -29,6 +29,7 @@ import java.io.IOException;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "APP";
+    private static final String FILE_PROVIDER_SUFFIX = ".fileprovider";
     public enum State {
         CAMERA,
         PHOTO_SENDING,
@@ -152,7 +153,7 @@ public class MainActivity extends AppCompatActivity {
             pendingPhotoPath = tempFile.getAbsolutePath();
             pendingPhotoUri = FileProvider.getUriForFile(
                     this,
-                    BuildConfig.APPLICATION_ID + ".fileprovider",
+                    buildFileProviderAuthority(getPackageName()),
                     tempFile
             );
         } catch (IOException e) {
@@ -281,6 +282,20 @@ public class MainActivity extends AppCompatActivity {
 
     static boolean shouldBindCamera(State state) {
         return state == State.CAMERA;
+    }
+
+    static String buildFileProviderAuthority(String packageName) {
+        if (packageName == null || packageName.isEmpty()) {
+            throw new IllegalArgumentException("packageName is required");
+        }
+        return packageName + FILE_PROVIDER_SUFFIX;
+    }
+
+    static boolean isFileProviderAuthorityValid(String packageName, String authority) {
+        if (authority == null || authority.isEmpty()) {
+            return false;
+        }
+        return authority.equals(buildFileProviderAuthority(packageName));
     }
 
     private void updateNfcDispatch(NfcDispatchTransition.Action action) {
