@@ -182,6 +182,38 @@ public class BackendApiTest {
     }
 
     @Test
+    public void recognizePassport_parsesMrzFromTopLevelFields() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody("{\"document_number\":\"456\",\"date_of_birth\":\"1991-02-02\",\"date_of_expiry\":\"2031-02-02\"}"));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Models.MRZKeys> result = new AtomicReference<>();
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.recognizePassport(new byte[] {0x03, 0x04}, new BackendApi.Callback<Models.MRZKeys>() {
+            @Override
+            public void onSuccess(Models.MRZKeys value) {
+                result.set(value);
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(String message) {
+                error.set(message);
+                latch.countDown();
+            }
+        });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertNotNull(result.get());
+        assertEquals("456", result.get().document_number);
+        assertEquals("1991-02-02", result.get().date_of_birth);
+        assertEquals("2031-02-02", result.get().date_of_expiry);
+        assertEquals(null, error.get());
+    }
+
+    @Test
     public void sendNfcRaw_postsJsonPayload() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(200));
 
