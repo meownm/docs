@@ -15,7 +15,7 @@
 
 **Notes:**
 - `passport` must be a non-empty object.
-- `face_image_b64` must be a non-empty base64 string of a JPEG.
+- `face_image_b64` must be a non-empty base64 string of a JPEG (JP2 allowed only if convertible to JPEG).
 - Dates inside `passport` are accepted as `YYMMDD`, `YYYYMMDD`, or `YYYY-MM-DD` and are normalized to `YYMMDD`.
 - If `passport.mrz` exists, dates inside that object are normalized too.
 
@@ -34,6 +34,9 @@
 ```
 ```json
 { "detail": "Invalid face_image_b64: ..." }
+```
+```json
+{ "detail": "Invalid face_image_b64: expected JPEG or JP2 convertible to JPEG" }
 ```
 
 ### GET `/nfc/{scan_id}/face.jpg` (and `/api/nfc/{scan_id}/face.jpg`)

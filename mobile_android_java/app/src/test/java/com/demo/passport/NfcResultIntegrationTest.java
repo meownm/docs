@@ -36,4 +36,17 @@ public class NfcResultIntegrationTest {
         assertNotNull(validationError);
         assertNull(payload);
     }
+
+    @Test
+    public void validateThenBuildPayload_failsWhenFaceMissing() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+
+        String validationError = MainActivity.validateNfcResult(result);
+        JsonObject payload = MainActivity.tryBuildNfcPayload(result, new StringBuilder());
+
+        assertNotNull(validationError);
+        assertNull(payload);
+    }
 }
