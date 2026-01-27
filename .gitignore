@@ -11,3 +11,7 @@ backend/.env
 /mobile_android_java/.gradle
 *.lock
 *.lock
+*.lock
+mobile_android_java/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+mobile_android_java/app/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+mobile_android_java/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/compile-file-map.properties
