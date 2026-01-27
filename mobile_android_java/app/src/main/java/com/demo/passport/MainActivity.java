@@ -2,8 +2,10 @@ package com.demo.passport;
 
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.os.Bundle;
+import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.LinearLayout;
@@ -11,6 +13,10 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.FileProvider;
+
+import java.io.File;
+import java.io.IOException;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -23,24 +29,7 @@ public class MainActivity extends AppCompatActivity {
         RESULT,
         ERROR
     }
-    private static final byte[] PLACEHOLDER_JPEG = new byte[] {
-            (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10, 0x4A, 0x46,
-            0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
-            (byte) 0xFF, (byte) 0xDB, 0x00, 0x43, 0x00, 0x03, 0x02, 0x02, 0x03, 0x02,
-            0x02, 0x03, 0x03, 0x03, 0x03, 0x04, 0x03, 0x03, 0x04, 0x05, 0x08, 0x05,
-            0x05, 0x04, 0x04, 0x05, 0x0A, 0x07, 0x07, 0x06, 0x08, 0x0C, 0x0A, 0x0C,
-            0x0C, 0x0B, 0x0A, 0x0B, 0x0B, 0x0D, 0x0E, 0x12, 0x10, 0x0D, 0x0E, 0x11,
-            0x0E, 0x0B, 0x0B, 0x10, 0x16, 0x10, 0x11, 0x13, 0x14, 0x15, 0x15, 0x15,
-            0x0C, 0x0F, 0x17, 0x18, 0x16, 0x14, 0x18, 0x12, 0x14, 0x15, 0x14,
-            (byte) 0xFF, (byte) 0xC0, 0x00, 0x11, 0x08, 0x00, 0x01, 0x00, 0x01, 0x03,
-            0x01, 0x11, 0x00, 0x02, 0x11, 0x01, 0x03, 0x11, 0x01, (byte) 0xFF,
-            (byte) 0xC4, 0x00, 0x14, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte) 0xFF,
-            (byte) 0xC4, 0x00, 0x14, 0x10, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00,
-            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, (byte) 0xFF,
-            (byte) 0xDA, 0x00, 0x0C, 0x03, 0x01, 0x00, 0x02, 0x11, 0x03, 0x11, 0x00,
-            0x3F, 0x00, 0x00, (byte) 0xFF, (byte) 0xD9
-    };
+    private static final int REQUEST_TAKE_PHOTO = 1001;
 
     private NfcAdapter nfcAdapter;
     private Button btnTakePhoto;
@@ -52,6 +41,8 @@ public class MainActivity extends AppCompatActivity {
     private State currentState = State.CAMERA;
     private Models.MRZKeys lastMrz;
     private String lastErrorMessage;
+    private String pendingPhotoPath;
+    private Uri pendingPhotoUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -69,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
         btnTakePhoto.setOnClickListener(v -> {
             Log.d(TAG, "Take photo clicked");
-            sendPhotoForRecognition();
+            launchCameraCapture();
         });
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
@@ -91,11 +82,72 @@ public class MainActivity extends AppCompatActivity {
         setState(State.RESULT);
     }
 
-    private void sendPhotoForRecognition() {
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_TAKE_PHOTO) {
+            return;
+        }
+        if (resultCode != RESULT_OK) {
+            lastErrorMessage = "Съемка отменена";
+            setState(State.CAMERA);
+            return;
+        }
+        handleCapturedPhoto();
+    }
+
+    private void launchCameraCapture() {
+        Intent intent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+        if (intent.resolveActivity(getPackageManager()) == null) {
+            lastErrorMessage = "Камера недоступна";
+            setState(State.ERROR);
+            return;
+        }
+        try {
+            File tempFile = File.createTempFile("passport_", ".jpg", getCacheDir());
+            pendingPhotoPath = tempFile.getAbsolutePath();
+            pendingPhotoUri = FileProvider.getUriForFile(
+                    this,
+                    BuildConfig.APPLICATION_ID + ".fileprovider",
+                    tempFile
+            );
+        } catch (IOException e) {
+            lastErrorMessage = "Не удалось подготовить файл для фото";
+            setState(State.ERROR);
+            return;
+        }
+        intent.putExtra(MediaStore.EXTRA_OUTPUT, pendingPhotoUri);
+        intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_WRITE_URI_PERMISSION);
+        startActivityForResult(intent, REQUEST_TAKE_PHOTO);
+    }
+
+    private void handleCapturedPhoto() {
+        if (pendingPhotoPath == null) {
+            lastErrorMessage = "Фото не сохранено";
+            setState(State.ERROR);
+            return;
+        }
+        File photoFile = new File(pendingPhotoPath);
+        byte[] bytes;
+        try {
+            bytes = PhotoCaptureUtils.readImageBytes(photoFile);
+        } catch (IllegalArgumentException e) {
+            lastErrorMessage = "Фото слишком маленькое (нужно > 500KB)";
+            setState(State.ERROR);
+            return;
+        } catch (IOException e) {
+            lastErrorMessage = "Не удалось прочитать фото";
+            setState(State.ERROR);
+            return;
+        }
+        sendPhotoForRecognition(bytes);
+    }
+
+    private void sendPhotoForRecognition(byte[] jpegBytes) {
         lastMrz = null;
         lastErrorMessage = null;
         setState(State.PHOTO_SENDING);
-        BackendApi.recognizePassport(PLACEHOLDER_JPEG, new BackendApi.Callback<Models.MRZKeys>() {
+        BackendApi.recognizePassport(jpegBytes, new BackendApi.Callback<Models.MRZKeys>() {
             @Override
             public void onSuccess(Models.MRZKeys value) {
                 runOnUiThread(() -> {
