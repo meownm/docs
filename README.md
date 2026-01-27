@@ -107,6 +107,18 @@ data: {"type":"nfc_scan_success","scan_id":"...","face_image_url":"/api/nfc/<sca
   "id": 123
 }
 ```
+Ошибка 422 (валидация обязательных полей):
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "platform"],
+      "msg": "Field required",
+      "type": "missing"
+    }
+  ]
+}
+```
 
 ### Swagger/Web
 Дублирующие пути с `/api`, например: `/api/recognize`, `/api/nfc`, `/api/events`.

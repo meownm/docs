@@ -207,6 +207,28 @@ def test_store_app_error_log_swagger_integration(client):
     assert row["platform"] == "web"
 
 
+def test_store_app_error_log_missing_platform_returns_422(client):
+    response = client.post(
+        "/errors",
+        json={"error_message": "Missing platform"},
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert any(item["loc"][-1] == "platform" for item in detail)
+
+
+def test_store_app_error_log_missing_error_message_returns_422(client):
+    response = client.post(
+        "/api/errors",
+        json={"platform": "web"},
+    )
+
+    assert response.status_code == 422
+    detail = response.json()["detail"]
+    assert any(item["loc"][-1] == "error_message" for item in detail)
+
+
 def test_store_app_error_log_missing_required_fields(client):
     response = client.post("/errors", json={"error_message": "missing platform"})
 
