@@ -312,6 +312,7 @@ def test_nfc_jpeg_with_trailing_bytes_accepted(client):
     assert face_response.status_code == 200
     assert face_response.headers["content-type"].startswith("image/jpeg")
     assert len(face_response.content) > 0
+    assert face_response.content == jpeg_bytes
 
 
 def test_nfc_unknown_face_bytes_rejected_without_file(client, patched_settings):
