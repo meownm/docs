@@ -25,7 +25,7 @@ public final class BackendApi {
                 .build();
 
         Request req = new Request.Builder()
-                .url(BackendConfig.BASE_URL + "/api/passport/recognize")
+                .url(BackendConfig.getBaseUrl() + "/api/passport/recognize")
                 .post(body)
                 .build();
 
@@ -50,11 +50,11 @@ public final class BackendApi {
                     return;
                 }
 
-                Models.MRZKeys mrz = new Models.MRZKeys();
-                mrz.document_number = obj.get("document_number").getAsString();
-                mrz.date_of_birth = obj.get("date_of_birth").getAsString();
-                mrz.date_of_expiry = obj.get("date_of_expiry").getAsString();
-
+                Models.MRZKeys mrz = parseMrz(obj);
+                if (mrz == null) {
+                    cb.onError("RECOGNIZE_ERROR: missing MRZ fields");
+                    return;
+                }
                 cb.onSuccess(mrz);
             }
         });
@@ -63,7 +63,7 @@ public final class BackendApi {
     public static void sendNfcRaw(JsonObject payload, Callback<Void> cb) {
         String json = gson.toJson(payload);
         Request req = new Request.Builder()
-                .url(BackendConfig.BASE_URL + "/api/passport/nfc")
+                .url(BackendConfig.getBaseUrl() + "/api/passport/nfc")
                 .post(RequestBody.create(json, MediaType.parse("application/json")))
                 .build();
 
@@ -83,6 +83,21 @@ public final class BackendApi {
                 cb.onSuccess(null);
             }
         });
+    }
+
+    private static Models.MRZKeys parseMrz(JsonObject obj) {
+        JsonObject mrzObj = obj;
+        if (obj.has("mrz") && obj.get("mrz").isJsonObject()) {
+            mrzObj = obj.getAsJsonObject("mrz");
+        }
+        if (!mrzObj.has("document_number") || !mrzObj.has("date_of_birth") || !mrzObj.has("date_of_expiry")) {
+            return null;
+        }
+        Models.MRZKeys mrz = new Models.MRZKeys();
+        mrz.document_number = mrzObj.get("document_number").getAsString();
+        mrz.date_of_birth = mrzObj.get("date_of_birth").getAsString();
+        mrz.date_of_expiry = mrzObj.get("date_of_expiry").getAsString();
+        return mrz;
     }
 
     private BackendApi() {}
