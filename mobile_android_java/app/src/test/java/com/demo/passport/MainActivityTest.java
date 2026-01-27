@@ -33,6 +33,18 @@ public class MainActivityTest {
     }
 
     @Test
+    public void shouldUpdateCameraPreview_returnsTrueOnCameraTransition() {
+        assertTrue(MainActivity.shouldUpdateCameraPreview(MainActivity.State.CAMERA, MainActivity.State.PHOTO_SENDING));
+        assertTrue(MainActivity.shouldUpdateCameraPreview(MainActivity.State.ERROR, MainActivity.State.CAMERA));
+    }
+
+    @Test
+    public void shouldUpdateCameraPreview_returnsFalseWhenCameraStateUnchanged() {
+        assertFalse(MainActivity.shouldUpdateCameraPreview(MainActivity.State.CAMERA, MainActivity.State.CAMERA));
+        assertFalse(MainActivity.shouldUpdateCameraPreview(MainActivity.State.ERROR, MainActivity.State.RESULT));
+    }
+
+    @Test
     public void buildFileProviderAuthority_buildsExpectedAuthority() {
         String authority = MainActivity.buildFileProviderAuthority("com.demo.passport");
         assertTrue(MainActivity.isFileProviderAuthorityValid("com.demo.passport", authority));

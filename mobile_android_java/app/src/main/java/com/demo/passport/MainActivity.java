@@ -283,6 +283,7 @@ public class MainActivity extends AppCompatActivity {
         textExpiryDate.setText(uiState.expiryDate);
         updateNfcDispatch(NfcDispatchTransition.from(previousState, newState));
         updateManualInputControls();
+        updateCameraPreview(previousState, newState);
         if (uiState.toastMessage != null) {
             Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
         }
@@ -312,13 +313,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateCameraPreview(State previousState, State newState) {
-        boolean wasCameraState = shouldBindCamera(previousState);
+        if (!shouldUpdateCameraPreview(previousState, newState)) {
+            return;
+        }
         boolean isCameraState = shouldBindCamera(newState);
-        if (isCameraState && !wasCameraState) {
+        if (isCameraState) {
             bindCameraPreview();
-        } else if (!isCameraState && wasCameraState) {
+        } else {
             unbindCameraPreview();
         }
+    }
+
+    static boolean shouldUpdateCameraPreview(State previousState, State newState) {
+        boolean wasCameraState = shouldBindCamera(previousState);
+        boolean isCameraState = shouldBindCamera(newState);
+        return wasCameraState != isCameraState;
     }
 
     private void bindCameraPreview() {
