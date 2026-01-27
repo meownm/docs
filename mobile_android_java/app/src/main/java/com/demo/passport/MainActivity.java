@@ -15,6 +15,14 @@ import androidx.appcompat.app.AppCompatActivity;
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "APP";
+    public enum State {
+        CAMERA,
+        PHOTO_SENDING,
+        NFC_WAIT,
+        NFC_READING,
+        RESULT,
+        ERROR
+    }
     private static final byte[] PLACEHOLDER_JPEG = new byte[] {
             (byte) 0xFF, (byte) 0xD8, (byte) 0xFF, (byte) 0xE0, 0x00, 0x10, 0x4A, 0x46,
             0x49, 0x46, 0x00, 0x01, 0x01, 0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00,
@@ -41,6 +49,9 @@ public class MainActivity extends AppCompatActivity {
     private TextView textDocumentNumber;
     private TextView textBirthDate;
     private TextView textExpiryDate;
+    private State currentState = State.CAMERA;
+    private Models.MRZKeys lastMrz;
+    private String lastErrorMessage;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,64 +73,82 @@ public class MainActivity extends AppCompatActivity {
         });
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
-        showPreviewState();
+        setState(State.CAMERA);
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        if (currentState != State.NFC_WAIT) {
+            return;
+        }
+        setState(State.NFC_READING);
+        if (lastMrz == null) {
+            lastErrorMessage = "Нет данных MRZ для чтения NFC";
+            setState(State.ERROR);
+            return;
+        }
+        setState(State.RESULT);
     }
 
     private void sendPhotoForRecognition() {
-        btnTakePhoto.setEnabled(false);
-        textStatus.setText("Отправляем фото на распознавание...");
+        lastMrz = null;
+        lastErrorMessage = null;
+        setState(State.PHOTO_SENDING);
         BackendApi.recognizePassport(PLACEHOLDER_JPEG, new BackendApi.Callback<Models.MRZKeys>() {
             @Override
             public void onSuccess(Models.MRZKeys value) {
                 runOnUiThread(() -> {
-                    showResultState(value);
-                    enableNfcMode();
+                    lastMrz = value;
+                    lastErrorMessage = null;
+                    setState(State.NFC_WAIT);
                 });
             }
 
             @Override
             public void onError(String message) {
                 runOnUiThread(() -> {
-                    Toast.makeText(MainActivity.this, "Ошибка распознавания: " + message, Toast.LENGTH_LONG).show();
-                    showPreviewState();
+                    lastErrorMessage = message;
+                    setState(State.ERROR);
                 });
             }
         });
     }
 
-    private void showPreviewState() {
-        textStatus.setText("Готово к съемке документа");
-        resultContainer.setVisibility(LinearLayout.GONE);
-        btnTakePhoto.setEnabled(true);
-        textDocumentNumber.setText("Номер документа: -");
-        textBirthDate.setText("Дата рождения: -");
-        textExpiryDate.setText("Срок действия: -");
+    private void setState(State newState) {
+        if ((newState == State.NFC_WAIT || newState == State.NFC_READING) && nfcAdapter == null) {
+            lastErrorMessage = "NFC не поддерживается";
+            newState = State.ERROR;
+        }
+        currentState = newState;
+        UiStateModel uiState = UiStateModel.from(newState, lastMrz, lastErrorMessage);
+        textStatus.setText(uiState.statusText);
+        resultContainer.setVisibility(uiState.showResult ? LinearLayout.VISIBLE : LinearLayout.GONE);
+        btnTakePhoto.setEnabled(uiState.takePhotoEnabled);
+        textDocumentNumber.setText(uiState.documentNumber);
+        textBirthDate.setText(uiState.birthDate);
+        textExpiryDate.setText(uiState.expiryDate);
+        updateNfcDispatch(uiState.enableNfc);
+        if (uiState.toastMessage != null) {
+            Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
+        }
     }
 
-    private void showResultState(Models.MRZKeys mrz) {
-        textStatus.setText("Документ распознан");
-        resultContainer.setVisibility(LinearLayout.VISIBLE);
-        btnTakePhoto.setEnabled(true);
-        textDocumentNumber.setText("Номер документа: " + mrz.document_number);
-        textBirthDate.setText("Дата рождения: " + mrz.date_of_birth);
-        textExpiryDate.setText("Срок действия: " + mrz.date_of_expiry);
-    }
-
-    private void enableNfcMode() {
+    private void updateNfcDispatch(boolean enable) {
         if (nfcAdapter == null) {
-            Toast.makeText(this, "NFC не поддерживается", Toast.LENGTH_LONG).show();
             return;
         }
-
-        PendingIntent pendingIntent =
-                PendingIntent.getActivity(
-                        this,
-                        0,
-                        new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
-                        PendingIntent.FLAG_MUTABLE
-                );
-
-        nfcAdapter.enableForegroundDispatch(this, pendingIntent, null, null);
-        Toast.makeText(this, "Приложите паспорт к NFC", Toast.LENGTH_LONG).show();
+        if (enable) {
+            PendingIntent pendingIntent =
+                    PendingIntent.getActivity(
+                            this,
+                            0,
+                            new Intent(this, getClass()).addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP),
+                            PendingIntent.FLAG_MUTABLE
+                    );
+            nfcAdapter.enableForegroundDispatch(this, pendingIntent, null, null);
+        } else {
+            nfcAdapter.disableForegroundDispatch(this);
+        }
     }
 }

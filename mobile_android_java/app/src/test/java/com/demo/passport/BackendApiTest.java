@@ -120,4 +120,31 @@ public class BackendApiTest {
         assertNotNull(error.get());
         assertTrue(error.get().contains("RECOGNIZE_ERROR"));
     }
+
+    @Test
+    public void recognizePassport_handlesMissingMrzFields() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody("{\"mrz\":{\"document_number\":\"123\"}}"));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.recognizePassport(new byte[] {0x01}, new BackendApi.Callback<Models.MRZKeys>() {
+            @Override
+            public void onSuccess(Models.MRZKeys value) {
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(String message) {
+                error.set(message);
+                latch.countDown();
+            }
+        });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertNotNull(error.get());
+        assertTrue(error.get().contains("missing MRZ fields"));
+    }
 }
