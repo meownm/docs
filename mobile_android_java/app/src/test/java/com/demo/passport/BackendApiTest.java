@@ -31,6 +31,7 @@ public class BackendApiTest {
     public void tearDown() throws Exception {
         BackendConfig.setBaseUrlForTesting(BackendConfig.DEFAULT_BASE_URL);
         BackendApi.resetErrorReportDebounceForTesting();
+        BackendApi.setDebugListener(null);
         server.shutdown();
     }
 
@@ -184,6 +185,42 @@ public class BackendApiTest {
     }
 
     @Test
+    public void recognizePassport_emitsRawResponseToDebugListener() throws Exception {
+        String rawJson = "{\"mrz\":{\"document_number\":\"789\",\"date_of_birth\":\"1999-09-09\",\"date_of_expiry\":\"2039-09-09\"}}";
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody(rawJson));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        CountDownLatch debugLatch = new CountDownLatch(1);
+        AtomicReference<Models.MRZKeys> result = new AtomicReference<>();
+        AtomicReference<String> debug = new AtomicReference<>();
+
+        BackendApi.setDebugListener(raw -> {
+            debug.set(raw);
+            debugLatch.countDown();
+        });
+
+        BackendApi.recognizePassport(new byte[] {0x05}, new BackendApi.Callback<Models.MRZKeys>() {
+            @Override
+            public void onSuccess(Models.MRZKeys value) {
+                result.set(value);
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(String message) {
+                latch.countDown();
+            }
+        });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertTrue("Debug listener timeout", debugLatch.await(5, TimeUnit.SECONDS));
+        assertNotNull(result.get());
+        assertEquals(rawJson, debug.get());
+    }
+
+    @Test
     public void recognizePassport_parsesMrzFromTopLevelFields() throws Exception {
         server.enqueue(new MockResponse()
                 .setResponseCode(200)
@@ -288,6 +325,13 @@ public class BackendApiTest {
 
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> error = new AtomicReference<>();
+        CountDownLatch debugLatch = new CountDownLatch(1);
+        AtomicReference<String> debug = new AtomicReference<>();
+
+        BackendApi.setDebugListener(raw -> {
+            debug.set(raw);
+            debugLatch.countDown();
+        });
 
         BackendApi.sendNfcRaw(JsonParser.parseString("{\"baz\":1}").getAsJsonObject(),
                 new BackendApi.Callback<Void>() {
@@ -304,8 +348,10 @@ public class BackendApiTest {
                 });
 
         assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertTrue("Debug listener timeout", debugLatch.await(5, TimeUnit.SECONDS));
         assertNotNull(error.get());
         assertTrue(error.get().contains("HTTP 400"));
+        assertEquals("bad nfc", debug.get());
     }
 
     @Test

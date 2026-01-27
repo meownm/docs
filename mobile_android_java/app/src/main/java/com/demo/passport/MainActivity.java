@@ -47,10 +47,12 @@ public class MainActivity extends AppCompatActivity {
     private TextView textDocumentNumber;
     private TextView textBirthDate;
     private TextView textExpiryDate;
+    private TextView textDebugResponse;
     private PreviewView cameraPreview;
     private State currentState = State.CAMERA;
     private Models.MRZKeys mrzKeys;
     private String lastErrorMessage;
+    private String lastDebugResponse;
     private String pendingPhotoPath;
     private Uri pendingPhotoUri;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
@@ -69,6 +71,7 @@ public class MainActivity extends AppCompatActivity {
         textDocumentNumber = findViewById(R.id.textDocumentNumber);
         textBirthDate = findViewById(R.id.textBirthDate);
         textExpiryDate = findViewById(R.id.textExpiryDate);
+        textDebugResponse = findViewById(R.id.textDebugResponse);
         cameraPreview = findViewById(R.id.cameraPreview);
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
@@ -79,6 +82,21 @@ public class MainActivity extends AppCompatActivity {
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
         setState(State.CAMERA);
+    }
+
+    @Override
+    protected void onStart() {
+        super.onStart();
+        BackendApi.setDebugListener(this::handleDebugResponse);
+        if (lastDebugResponse != null && textDebugResponse != null) {
+            textDebugResponse.setText(lastDebugResponse);
+        }
+    }
+
+    @Override
+    protected void onStop() {
+        super.onStop();
+        BackendApi.setDebugListener(null);
     }
 
     @Override
@@ -229,6 +247,15 @@ public class MainActivity extends AppCompatActivity {
         if (uiState.toastMessage != null) {
             Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void handleDebugResponse(String response) {
+        lastDebugResponse = response;
+        runOnUiThread(() -> {
+            if (textDebugResponse != null) {
+                textDebugResponse.setText(response);
+            }
+        });
     }
 
     private void updateCameraPreview(State previousState, State newState) {
