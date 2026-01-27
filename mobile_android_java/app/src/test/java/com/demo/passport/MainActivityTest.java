@@ -45,6 +45,12 @@ public class MainActivityTest {
     }
 
     @Test
+    public void shouldUpdateCameraPreview_handlesNullStates() {
+        assertFalse(MainActivity.shouldUpdateCameraPreview(null, MainActivity.State.ERROR));
+        assertFalse(MainActivity.shouldUpdateCameraPreview(MainActivity.State.ERROR, null));
+    }
+
+    @Test
     public void buildFileProviderAuthority_buildsExpectedAuthority() {
         String authority = MainActivity.buildFileProviderAuthority("com.demo.passport");
         assertTrue(MainActivity.isFileProviderAuthorityValid("com.demo.passport", authority));

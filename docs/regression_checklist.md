@@ -27,6 +27,7 @@
 
 Примечания:
 - `JPEG2000/JP2` допускается доставлять на backend для конвертации в JPEG; если конвертация невозможна, возвращать 422 и не сохранять файл.
+- Клиент отправляет байты лица без предварительной конвертации и обрабатывает 422 от backend как ошибку чтения.
 
 ## Матрица совместимости (backend обязан принимать)
 
@@ -88,7 +89,7 @@
 
 ## Backend env compatibility
 - Backend читает `BACKEND_HOST`/`BACKEND_PORT` и `OLLAMA_TIMEOUT_SECONDS` с fallback на `APP_HOST`/`APP_PORT` и `OLLAMA_TIMEOUT_SEC`.
-- Проверка: `backend/tests/test_settings_env.py`.
+- Проверка: `backend/tests/test_settings_env.py`, `backend/tests/test_settings_env_integration.py`.
 
 ## SSE маршруты
 - Канонический: `/api/events`.
@@ -96,4 +97,5 @@
 - `/api/api/events` не должен появляться.
 
 ## Обязательные тесты
-См. `backend/tests/test_contracts_regression.py` и `mobile_android_java/app/src/test/java/com/demo/passport/DateNormalizeTest.java`.
+См. `backend/tests/test_contracts_regression.py`, `mobile_android_java/app/src/test/java/com/demo/passport/DateNormalizeTest.java`,
+`mobile_android_java/app/src/test/java/com/demo/passport/MainActivityTest.java`.
