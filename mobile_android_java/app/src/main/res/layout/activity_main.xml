@@ -57,15 +57,15 @@
             android:id="@+id/inputBirthDate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Дата рождения (ГГГГ-ММ-ДД)"
-            android:inputType="date" />
+            android:hint="Дата рождения (YYMMDD)"
+            android:inputType="text" />
 
         <EditText
             android:id="@+id/inputExpiryDate"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:hint="Срок действия (ГГГГ-ММ-ДД)"
-            android:inputType="date" />
+            android:hint="Срок действия (YYMMDD)"
+            android:inputType="text" />
 
         <Button
             android:id="@+id/btnStartNfcManual"

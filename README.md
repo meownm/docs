@@ -50,10 +50,11 @@ Foreground dispatch NFC включается только на этапе ожи
 ```json
 {
   "document_number": "123456789",
-  "date_of_birth": "19900131",
-  "date_of_expiry": "20300131"
+  "date_of_birth": "900131",
+  "date_of_expiry": "300131"
 }
 ```
+Даты всегда возвращаются в формате `YYMMDD` (канон для mobile).
 
 Выход 200 (ошибка — строка):
 ```json
@@ -64,6 +65,7 @@ Foreground dispatch NFC включается только на этапе ожи
 Вход: JSON (обязательные поля):
 - `passport` — объект, не пустой.
 - `face_image_b64` — строка с base64 (обязательная, валидная).
+Сервер принимает даты MRZ в форматах `YYMMDD`, `YYYYMMDD`, `YYYY-MM-DD` и нормализует к `YYMMDD`.
 
 Выход 200:
 ```json
