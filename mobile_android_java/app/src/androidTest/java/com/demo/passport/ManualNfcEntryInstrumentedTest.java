@@ -32,7 +32,7 @@ public class ManualNfcEntryInstrumentedTest {
     }
 
     @Test
-    public void manualNfcButton_enabledWhenInputsComplete() {
+    public void manualNfcButton_disabledWhenDateFormatInvalid() {
         try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
             scenario.onActivity(activity -> {
                 EditText doc = activity.findViewById(R.id.inputDocumentNumber);
@@ -42,7 +42,25 @@ public class ManualNfcEntryInstrumentedTest {
 
                 doc.setText("AB123");
                 birth.setText("1990-01-01");
-                expiry.setText("2030-01-01");
+                expiry.setText("300101");
+
+                assertFalse(button.isEnabled());
+            });
+        }
+    }
+
+    @Test
+    public void manualNfcButton_enabledWhenInputsComplete() {
+        try (ActivityScenario<MainActivity> scenario = ActivityScenario.launch(MainActivity.class)) {
+            scenario.onActivity(activity -> {
+                EditText doc = activity.findViewById(R.id.inputDocumentNumber);
+                EditText birth = activity.findViewById(R.id.inputBirthDate);
+                EditText expiry = activity.findViewById(R.id.inputExpiryDate);
+                Button button = activity.findViewById(R.id.btnStartNfcManual);
+
+                doc.setText("AB123");
+                birth.setText("900101");
+                expiry.setText("300101");
 
                 assertTrue(button.isEnabled());
             });

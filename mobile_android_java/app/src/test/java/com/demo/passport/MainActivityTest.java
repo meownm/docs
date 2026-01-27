@@ -63,11 +63,11 @@ public class MainActivityTest {
 
     @Test
     public void buildManualMrzKeys_returnsKeysWhenAllFieldsPresent() {
-        Models.MRZKeys keys = MainActivity.buildManualMrzKeys("AB123", "1990-01-01", "2030-01-01");
+        Models.MRZKeys keys = MainActivity.buildManualMrzKeys("AB123", "900101", "300101");
         assertNotNull(keys);
         assertTrue("AB123".equals(keys.document_number));
-        assertTrue("1990-01-01".equals(keys.date_of_birth));
-        assertTrue("2030-01-01".equals(keys.date_of_expiry));
+        assertTrue("900101".equals(keys.date_of_birth));
+        assertTrue("300101".equals(keys.date_of_expiry));
     }
 
     @Test
@@ -75,5 +75,25 @@ public class MainActivityTest {
         assertNull(MainActivity.buildManualMrzKeys("", "1990-01-01", "2030-01-01"));
         assertNull(MainActivity.buildManualMrzKeys("AB123", "", "2030-01-01"));
         assertNull(MainActivity.buildManualMrzKeys("AB123", "1990-01-01", ""));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsNullWhenValuesAreValid() {
+        assertNull(MainActivity.validateMrzInputs("AB123", "900101", "300101"));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsErrorWhenValuesMissing() {
+        assertNotNull(MainActivity.validateMrzInputs("", "900101", "300101"));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsErrorWhenBirthDateInvalid() {
+        assertNotNull(MainActivity.validateMrzInputs("AB123", "1990-01-01", "300101"));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsErrorWhenExpiryDateInvalid() {
+        assertNotNull(MainActivity.validateMrzInputs("AB123", "900101", "2030-01-01"));
     }
 }
