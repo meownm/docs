@@ -16,13 +16,14 @@ def _env_int(key: str, default: int) -> int:
     return int(v)
 
 
-@dataclass(frozen=True)
+@dataclass
 class Settings:
     # Server
     host: str = _env("APP_HOST", "127.0.0.1")
     port: int = _env_int("APP_PORT", 30450)
 
     # Files
+    data_dir: str = _env("DATA_DIR", "./data")
     files_dir: str = _env("FILES_DIR", "./files")
 
     # Ollama

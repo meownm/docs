@@ -1,4 +1,6 @@
 import os
+from contextlib import asynccontextmanager
+
 import aiosqlite
 from .settings import settings
 
@@ -67,9 +69,10 @@ async def init_db() -> None:
         await db.commit()
 
 
+@asynccontextmanager
 async def get_db():
     """
-    Асинхронный генератор соединений с БД.
+    Асинхронный контекстный менеджер соединений с БД.
     Используется в middleware и сервисах.
     """
     db = await aiosqlite.connect(settings.db_path)

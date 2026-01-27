@@ -38,11 +38,9 @@ def test_recognize_mobile_success(client, monkeypatch):
     async def fake_ollama(image_bytes: bytes):
         return "req-1", json.dumps(
             {
-                "mrz": {
-                    "document_number": "123456789",
-                    "date_of_birth": "19900101",
-                    "date_of_expiry": "20300101",
-                }
+                "document_number": "123456789",
+                "date_of_birth": "1990-01-01",
+                "date_of_expiry": "2030-01-01",
             }
         )
 
@@ -54,27 +52,27 @@ def test_recognize_mobile_success(client, monkeypatch):
     )
 
     assert response.status_code == 200
-    assert response.json() == {
+    payload = response.json()
+    assert payload == {
         "document_number": "123456789",
         "date_of_birth": "19900101",
         "date_of_expiry": "20300101",
     }
 
 
-def test_recognize_mobile_empty_image_returns_error(client):
+def test_recognize_passport_empty_image_returns_error_payload(client):
     response = client.post(
         "/recognize",
         files={"image": ("passport.jpg", b"", "image/jpeg")},
     )
 
     assert response.status_code == 200
-    payload = response.json()
-    assert payload["error"] == "Empty image file"
+    assert response.json() == {"error": "Empty image file"}
 
 
 def test_recognize_mobile_mrz_not_found_error(client, monkeypatch):
     async def fake_ollama(image_bytes: bytes):
-        return "req-2", "no mrz here"
+        return "req-2", json.dumps({"document_number": "123456789"})
 
     monkeypatch.setattr(api_module, "ollama_chat_with_image", fake_ollama)
 
@@ -85,18 +83,17 @@ def test_recognize_mobile_mrz_not_found_error(client, monkeypatch):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["error"] == "MRZ not found in recognition result"
+    assert payload == {"error": "MRZ not found in recognition result"}
 
 
-def test_store_nfc_invalid_base64_returns_error(client):
+def test_store_nfc_invalid_base64_returns_error_payload(client):
     response = client.post(
         "/nfc",
         json={"passport": {"doc": "x"}, "face_image_b64": "not-base64"},
     )
 
     assert response.status_code == 200
-    payload = response.json()
-    assert payload["error"].startswith("Invalid face_image_b64:")
+    assert response.json()["error"].startswith("Invalid face_image_b64:")
 
 
 def test_store_nfc_and_fetch_face_integration(client):

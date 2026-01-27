@@ -7,10 +7,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import router
+from app.api_logging import ApiRequestLoggingMiddleware
 from app.db import init_db
 
 
 app = FastAPI(title="FastAPI", version="0.1.0")
+app.add_middleware(ApiRequestLoggingMiddleware)
 
 
 @app.on_event("startup")

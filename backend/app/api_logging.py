@@ -25,11 +25,11 @@ class ApiRequestLoggingMiddleware(BaseHTTPMiddleware):
         finally:
             duration_ms = int((time.perf_counter() - start) * 1000)
 
-            with get_db() as conn:
-                conn.execute(
+            async with get_db() as conn:
+                await conn.execute(
                     """
-                    INSERT INTO api_request_log (
-                        ts,
+                    INSERT INTO api_request_logs (
+                        ts_utc,
                         method,
                         path,
                         query,
@@ -58,4 +58,4 @@ class ApiRequestLoggingMiddleware(BaseHTTPMiddleware):
                         error_text,
                     ),
                 )
-                conn.commit()
+                await conn.commit()
