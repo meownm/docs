@@ -177,7 +177,9 @@ async def get_nfc_face(scan_id: str):
 
 async def _event_stream() -> AsyncIterator[str]:
     async for event in event_bus.subscribe():
-        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        event_type = event.get("type", "message")
+        data = json.dumps(event, ensure_ascii=False)
+        yield f"event: {event_type}\ndata: {data}\n\n"
 
 
 # --- Канон мобилки ---
