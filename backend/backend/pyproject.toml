@@ -1,0 +1,28 @@
+[tool.poetry]
+name = "passport-demo-backend"
+version = "0.1.0"
+description = "Demo backend: passport photo recognition via Ollama qwen3-vl + NFC scan storage + web UI"
+authors = ["demo"]
+readme = "README.md"
+packages = [{ include = "app" }]
+
+[tool.poetry.dependencies]
+python = "^3.11"
+fastapi = "^0.115.0"
+uvicorn = {extras = ["standard"], version = "^0.30.6"}
+python-multipart = "^0.0.9"
+pydantic = "^2.8.2"
+pydantic-settings = "^2.4.0"
+httpx = "^0.27.2"
+aiosqlite = "^0.20.0"
+jinja2 = "^3.1.4"
+
+[tool.poetry.group.dev.dependencies]
+ruff = "^0.6.9"
+
+[tool.ruff]
+line-length = 100
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
