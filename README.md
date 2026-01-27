@@ -20,6 +20,7 @@ ollama pull qwen3-vl:30b
 
 ### 2) Backend (Poetry)
 Перейдите в `backend/`.
+Этот каталог является единственным источником истины для backend.
 
 ```bat
 install.bat
@@ -37,42 +38,52 @@ run_dev.bat
 В настройках приложения задайте URL backend (см. `BackendConfig.java`).
 Foreground dispatch NFC включается только на этапе ожидания сканирования (NFC_WAIT) и отключается при выходе из этого состояния.
 
-## Контракты API
+## Контракты API (канон для mobile)
 
-### POST `/api/passport/recognize`
+> Для мобильной команды используйте пути без `/api`.
+> Префикс `/api` нужен только для Swagger/Web и повторяет те же обработчики.
+
+### POST `/recognize`
 Вход: `multipart/form-data` с полем `image`.
 
-Выход 200:
+Выход 200 (успех — MRZ поля):
 ```json
 {
-  "request_id": "uuid",
-  "mrz": {
-    "document_number": "123456789",
-    "date_of_birth": "1990-01-31",
-    "date_of_expiry": "2030-01-31"
-  },
-  "raw": { "optional": "model_specific" }
+  "document_number": "123456789",
+  "date_of_birth": "19900131",
+  "date_of_expiry": "20300131"
 }
 ```
 
-Выход 422/500 — ошибка распознавания с полями `error_code`, `message`.
+Выход 200 (ошибка — строка):
+```json
+{ "error": "MRZ not found in recognition result" }
+```
 
-### POST `/api/passport/nfc`
-Вход: JSON (параметры) + фото (base64) или multipart (см. OpenAPI).
+### POST `/nfc`
+Вход: JSON (параметры) + фото (base64).
 
 Выход 200:
 ```json
 {
-  "scan_id": "uuid",
-  "status": "stored"
+  "scan_id": "uuid"
 }
 ```
 
-### GET `/api/events`
-SSE поток. При сохранении NFC‑скана отправляется событие `nfc_scan_success` с `scan_id` и `face_image_url`.
+Выход 200 (ошибка — строка):
+```json
+{ "error": "Invalid face_image_b64: ..." }
+```
 
-### GET `/api/nfc/{scan_id}/face.jpg`
+### GET `/events`
+SSE поток. При сохранении NFC‑скана отправляется событие `nfc_scan_success` с `scan_id`.
+
+### GET `/nfc/{scan_id}/face.jpg`
 Возвращает фото лица из NFC‑чипа.
+
+### Swagger/Web
+Дублирующие пути с `/api`, например: `/api/recognize`, `/api/nfc`, `/api/events`.
+Дополнительно доступны `/passport/recognize` и `/passport/nfc` (и их варианты с `/api`).
 
 ## Логирование входов/выходов LLM
 Backend сохраняет вход/выход LLM в SQLite: `backend/data/app.db`, таблица `llm_logs`.
