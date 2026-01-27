@@ -17,3 +17,4 @@
 | R-11 | Проект демонстрационный, без развития | implemented | README.md |
 | R-12 | Логировать HTTP запросы в SQLite (успехи и ошибки) | implemented | backend/app/api_logging.py, backend/app/db.py, backend/tests/test_api_logging.py |
 | R-13 | Мобилка поддерживает ручной ввод MRZ для запуска NFC | implemented | MainActivity.java, activity_main.xml |
+| R-14 | Логировать request/response body HTTP запросов в SQLite с лимитом размера | implemented | backend/app/api_logging.py, backend/app/db.py, backend/tests/test_api_logging.py |

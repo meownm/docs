@@ -1,9 +1,12 @@
 from __future__ import annotations
 
+import json
 import time
 from datetime import datetime
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.responses import Response
 
 from app.db import get_db
 
@@ -13,14 +16,39 @@ class ApiRequestLoggingMiddleware(BaseHTTPMiddleware):
         start = time.perf_counter()
         error_text = None
         status_code = None
+        response_body = None
+        response_headers = None
+
+        request_body_bytes = await request.body()
+        request_body = _format_body(
+            request_body_bytes,
+            request.headers.get("content-type"),
+        )
 
         try:
             response = await call_next(request)
             status_code = response.status_code
-            return response
+            response_body_bytes = await _collect_response_body(response)
+            response_body = _format_body(
+                response_body_bytes,
+                response.headers.get("content-type"),
+            )
+            response_headers = dict(response.headers)
+            response_headers.pop("content-length", None)
+            return Response(
+                content=response_body_bytes,
+                status_code=response.status_code,
+                headers=response_headers,
+                media_type=response.media_type,
+                background=response.background,
+            )
         except Exception as e:
             error_text = str(e)
             status_code = 500
+            response_body = json.dumps(
+                {"placeholder": "unhandled_exception", "detail": error_text},
+                ensure_ascii=False,
+            )
             raise
         finally:
             duration_ms = int((time.perf_counter() - start) * 1000)
@@ -39,9 +67,11 @@ class ApiRequestLoggingMiddleware(BaseHTTPMiddleware):
                         user_agent,
                         content_type,
                         content_length,
-                        error
+                        error,
+                        request_body,
+                        response_body
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         datetime.utcnow().isoformat(),
@@ -56,6 +86,56 @@ class ApiRequestLoggingMiddleware(BaseHTTPMiddleware):
                         int(request.headers.get("content-length"))
                         if request.headers.get("content-length") else None,
                         error_text,
+                        request_body,
+                        response_body,
                     ),
                 )
                 await conn.commit()
+
+
+MAX_BODY_SIZE = 64 * 1024
+TEXT_CONTENT_TYPES = (
+    "application/json",
+    "application/x-www-form-urlencoded",
+)
+
+
+def _format_body(body: bytes, content_type: str | None) -> str:
+    if body is None:
+        return ""
+
+    size = len(body)
+    if size == 0:
+        return ""
+
+    if size > MAX_BODY_SIZE:
+        return _placeholder_body(size)
+
+    content_type = (content_type or "").lower()
+    if content_type.startswith("multipart/"):
+        return _placeholder_body(size)
+
+    is_textual = content_type.startswith("text/")
+    is_json_or_form = any(content_type.startswith(ct) for ct in TEXT_CONTENT_TYPES)
+    if not (is_textual or is_json_or_form):
+        return _placeholder_body(size)
+
+    try:
+        return body.decode("utf-8")
+    except UnicodeDecodeError:
+        return _placeholder_body(size)
+
+
+def _placeholder_body(size: int) -> str:
+    return json.dumps(
+        {"placeholder": "binary_or_too_large", "size": size},
+        ensure_ascii=False,
+    )
+
+
+async def _collect_response_body(response: Response) -> bytes:
+    if getattr(response, "body_iterator", None) is not None:
+        chunks = [chunk async for chunk in response.body_iterator]
+        return b"".join(chunks)
+    body = getattr(response, "body", b"")
+    return body if body is not None else b""

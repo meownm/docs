@@ -50,7 +50,9 @@ DDL = [
         user_agent TEXT,
         content_type TEXT,
         content_length INTEGER,
-        error TEXT
+        error TEXT,
+        request_body TEXT,
+        response_body TEXT
     );
     """,
 
@@ -84,6 +86,7 @@ async def init_db() -> None:
     async with aiosqlite.connect(settings.db_path) as db:
         for stmt in DDL:
             await db.execute(stmt)
+        await _ensure_api_request_log_columns(db)
         await db.commit()
 
 
@@ -98,3 +101,18 @@ async def get_db():
         yield db
     finally:
         await db.close()
+
+
+async def _ensure_api_request_log_columns(db: aiosqlite.Connection) -> None:
+    cursor = await db.execute("PRAGMA table_info(api_request_logs)")
+    rows = await cursor.fetchall()
+    existing_columns = {row[1] for row in rows}
+
+    if "request_body" not in existing_columns:
+        await db.execute(
+            "ALTER TABLE api_request_logs ADD COLUMN request_body TEXT"
+        )
+    if "response_body" not in existing_columns:
+        await db.execute(
+            "ALTER TABLE api_request_logs ADD COLUMN response_body TEXT"
+        )
