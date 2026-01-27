@@ -86,13 +86,44 @@ public class MainActivity extends AppCompatActivity {
         if (currentState != State.NFC_WAIT) {
             return;
         }
-        setState(State.NFC_READING);
         if (mrzKeys == null) {
             lastErrorMessage = "Нет данных MRZ для чтения NFC";
             setState(State.ERROR);
             return;
         }
-        setState(State.RESULT);
+        android.nfc.Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+        if (tag == null) {
+            lastErrorMessage = "NFC-тег не найден";
+            setState(State.ERROR);
+            return;
+        }
+        lastErrorMessage = null;
+        setState(State.NFC_READING);
+        Models.NfcResult result;
+        try {
+            result = NfcPassportReader.readPassport(tag, mrzKeys);
+        } catch (Exception e) {
+            lastErrorMessage = "Ошибка чтения NFC: " + e.getMessage();
+            setState(State.ERROR);
+            return;
+        }
+        BackendApi.sendNfcRaw(NfcPayloadBuilder.build(result), new BackendApi.Callback<Void>() {
+            @Override
+            public void onSuccess(Void value) {
+                runOnUiThread(() -> {
+                    lastErrorMessage = null;
+                    setState(State.RESULT);
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    lastErrorMessage = message;
+                    setState(State.ERROR);
+                });
+            }
+        });
     }
 
     @Override
@@ -252,7 +283,7 @@ public class MainActivity extends AppCompatActivity {
         return state == State.CAMERA;
     }
 
-    private void updateNfcDispatch(boolean enable) {
+    private void updateNfcDispatch(NfcDispatchTransition.Action action) {
         if (nfcAdapter == null) {
             return;
         }
