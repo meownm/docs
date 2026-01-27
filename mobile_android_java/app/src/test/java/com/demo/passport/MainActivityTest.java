@@ -5,7 +5,11 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.google.gson.JsonObject;
+
 import org.junit.Test;
+
+import java.util.HashMap;
 
 public class MainActivityTest {
 
@@ -95,5 +99,31 @@ public class MainActivityTest {
     @Test
     public void validateMrzInputs_returnsErrorWhenExpiryDateInvalid() {
         assertNotNull(MainActivity.validateMrzInputs("AB123", "900101", "2030-01-01"));
+    }
+
+    @Test
+    public void tryBuildNfcPayload_returnsPayloadForValidResult() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        result.faceImageJpeg = new byte[0];
+
+        StringBuilder error = new StringBuilder();
+        JsonObject payload = MainActivity.tryBuildNfcPayload(result, error);
+
+        assertNotNull(payload);
+        assertTrue(error.length() == 0);
+    }
+
+    @Test
+    public void tryBuildNfcPayload_returnsNullAndErrorForMissingPassport() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.faceImageJpeg = new byte[0];
+
+        StringBuilder error = new StringBuilder();
+        JsonObject payload = MainActivity.tryBuildNfcPayload(result, error);
+
+        assertNull(payload);
+        assertTrue(error.toString().contains("Passport data is missing"));
     }
 }

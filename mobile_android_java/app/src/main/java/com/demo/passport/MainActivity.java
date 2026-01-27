@@ -22,6 +22,7 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.FileProvider;
 import androidx.core.content.ContextCompat;
 
+import com.google.gson.JsonObject;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
@@ -144,7 +145,14 @@ public class MainActivity extends AppCompatActivity {
             setState(State.ERROR);
             return;
         }
-        BackendApi.sendNfcRaw(NfcPayloadBuilder.build(result), new BackendApi.Callback<Void>() {
+        StringBuilder payloadError = new StringBuilder();
+        JsonObject payload = tryBuildNfcPayload(result, payloadError);
+        if (payload == null) {
+            lastErrorMessage = "Ошибка подготовки NFC: " + payloadError;
+            setState(State.ERROR);
+            return;
+        }
+        BackendApi.sendNfcRaw(payload, new BackendApi.Callback<Void>() {
             @Override
             public void onSuccess(Void value) {
                 runOnUiThread(() -> {
@@ -375,6 +383,17 @@ public class MainActivity extends AppCompatActivity {
             return "Нет данных MRZ для запуска NFC";
         }
         return validateMrzInputs(keys.document_number, keys.date_of_birth, keys.date_of_expiry);
+    }
+
+    static JsonObject tryBuildNfcPayload(Models.NfcResult result, StringBuilder errorMessage) {
+        try {
+            return NfcPayloadBuilder.build(result);
+        } catch (IllegalArgumentException e) {
+            if (errorMessage != null) {
+                errorMessage.append(e.getMessage());
+            }
+            return null;
+        }
     }
 
     private static boolean isBlank(String value) {
