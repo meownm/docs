@@ -112,10 +112,14 @@ async def _nfc_impl(payload: dict):
         except Exception as e:
             return {"error": f"Invalid face_image_b64: {e}"}
 
-        await event_bus.publish({
+        event_payload = {
             "type": "nfc_scan_success",
             "scan_id": scan_id,
-        })
+            "face_image_url": f"/api/nfc/{scan_id}/face.jpg",
+        }
+        if "passport" in payload:
+            event_payload["passport"] = payload["passport"]
+        await event_bus.publish(event_payload)
 
     return {"scan_id": scan_id}
 
@@ -146,7 +150,9 @@ async def get_nfc_face(scan_id: str):
 
 async def _event_stream() -> AsyncIterator[str]:
     async for event in event_bus.subscribe():
-        yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        event_type = event.get("type", "message")
+        data = json.dumps(event, ensure_ascii=False)
+        yield f"event: {event_type}\ndata: {data}\n\n"
 
 
 # --- Канон мобилки ---

@@ -76,7 +76,14 @@ Foreground dispatch NFC включается только на этапе ожи
 ```
 
 ### GET `/events`
-SSE поток. При сохранении NFC‑скана отправляется событие `nfc_scan_success` с `scan_id`.
+SSE поток. При сохранении NFC‑скана отправляется событие `nfc_scan_success` в SSE-формате:
+
+```
+event: nfc_scan_success
+data: {"type":"nfc_scan_success","scan_id":"...","face_image_url":"/api/nfc/<scan_id>/face.jpg","passport":{...}}
+```
+
+Поле `passport` присутствует только если было отправлено в запросе NFC.
 
 ### GET `/nfc/{scan_id}/face.jpg`
 Возвращает фото лица из NFC‑чипа.
