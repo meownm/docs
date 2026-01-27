@@ -4,4 +4,10 @@ router = APIRouter()
 
 @router.post("/process")
 def process(payload: dict):
-    return {"result": "ok"}
+    """
+    Минимальный endpoint для проверки wiring'а.
+    Контракт будет формализован отдельно.
+    """
+    return {
+        "result": "ok"
+    }
