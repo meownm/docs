@@ -36,12 +36,50 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"/>
 
+    <LinearLayout
+        android:id="@+id/manualInputContainer"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="vertical"
+        app:layout_constraintTop_toBottomOf="@id/btnTakePhoto"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <EditText
+            android:id="@+id/inputDocumentNumber"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Номер документа"
+            android:inputType="text" />
+
+        <EditText
+            android:id="@+id/inputBirthDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Дата рождения (ГГГГ-ММ-ДД)"
+            android:inputType="date" />
+
+        <EditText
+            android:id="@+id/inputExpiryDate"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:hint="Срок действия (ГГГГ-ММ-ДД)"
+            android:inputType="date" />
+
+        <Button
+            android:id="@+id/btnStartNfcManual"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Проверка через чип" />
+    </LinearLayout>
+
     <androidx.constraintlayout.widget.Barrier
         android:id="@+id/resultBarrier"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         app:barrierDirection="bottom"
-        app:constraint_referenced_ids="btnTakePhoto,resultContainer" />
+        app:constraint_referenced_ids="btnTakePhoto,manualInputContainer,resultContainer" />
 
     <LinearLayout
         android:id="@+id/resultContainer"
@@ -49,7 +87,7 @@
         android:layout_height="wrap_content"
         android:orientation="vertical"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/btnTakePhoto"
+        app:layout_constraintTop_toBottomOf="@id/manualInputContainer"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 

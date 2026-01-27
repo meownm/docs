@@ -9,6 +9,7 @@ import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -42,6 +43,10 @@ public class MainActivity extends AppCompatActivity {
 
     private NfcAdapter nfcAdapter;
     private Button btnTakePhoto;
+    private Button btnStartNfcManual;
+    private EditText inputDocumentNumber;
+    private EditText inputBirthDate;
+    private EditText inputExpiryDate;
     private TextView textStatus;
     private LinearLayout resultContainer;
     private TextView textDocumentNumber;
@@ -66,6 +71,10 @@ public class MainActivity extends AppCompatActivity {
         Log.d(TAG, "UI attached");
 
         btnTakePhoto = findViewById(R.id.btnTakePhoto);
+        btnStartNfcManual = findViewById(R.id.btnStartNfcManual);
+        inputDocumentNumber = findViewById(R.id.inputDocumentNumber);
+        inputBirthDate = findViewById(R.id.inputBirthDate);
+        inputExpiryDate = findViewById(R.id.inputExpiryDate);
         textStatus = findViewById(R.id.textStatus);
         resultContainer = findViewById(R.id.resultContainer);
         textDocumentNumber = findViewById(R.id.textDocumentNumber);
@@ -79,6 +88,14 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Take photo clicked");
             launchCameraCapture();
         });
+        btnStartNfcManual.setOnClickListener(v -> {
+            Log.d(TAG, "Manual NFC clicked");
+            handleManualNfcStart();
+        });
+        ManualInputWatcher inputWatcher = new ManualInputWatcher();
+        inputDocumentNumber.addTextChangedListener(inputWatcher);
+        inputBirthDate.addTextChangedListener(inputWatcher);
+        inputExpiryDate.addTextChangedListener(inputWatcher);
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
         setState(State.CAMERA);
@@ -244,6 +261,7 @@ public class MainActivity extends AppCompatActivity {
         textBirthDate.setText(uiState.birthDate);
         textExpiryDate.setText(uiState.expiryDate);
         updateNfcDispatch(NfcDispatchTransition.from(previousState, newState));
+        updateManualInputControls();
         if (uiState.toastMessage != null) {
             Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
         }
@@ -312,6 +330,25 @@ public class MainActivity extends AppCompatActivity {
         return state == State.CAMERA;
     }
 
+    static Models.MRZKeys buildManualMrzKeys(
+            String documentNumber,
+            String birthDate,
+            String expiryDate
+    ) {
+        if (isBlank(documentNumber) || isBlank(birthDate) || isBlank(expiryDate)) {
+            return null;
+        }
+        Models.MRZKeys keys = new Models.MRZKeys();
+        keys.document_number = documentNumber.trim();
+        keys.date_of_birth = birthDate.trim();
+        keys.date_of_expiry = expiryDate.trim();
+        return keys;
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.trim().isEmpty();
+    }
+
     static String buildFileProviderAuthority(String packageName) {
         if (packageName == null || packageName.isEmpty()) {
             throw new IllegalArgumentException("packageName is required");
@@ -341,6 +378,52 @@ public class MainActivity extends AppCompatActivity {
             nfcAdapter.enableForegroundDispatch(this, pendingIntent, null, null);
         } else if (action == NfcDispatchTransition.Action.DISABLE) {
             nfcAdapter.disableForegroundDispatch(this);
+        }
+    }
+
+    private void handleManualNfcStart() {
+        Models.MRZKeys keys = buildManualMrzKeys(
+                inputDocumentNumber.getText().toString(),
+                inputBirthDate.getText().toString(),
+                inputExpiryDate.getText().toString()
+        );
+        if (keys == null) {
+            lastErrorMessage = "Заполните номер документа, дату рождения и срок действия";
+            setState(State.ERROR);
+            return;
+        }
+        mrzKeys = keys;
+        lastErrorMessage = null;
+        setState(State.NFC_WAIT);
+    }
+
+    private void updateManualInputControls() {
+        boolean inputsEnabled = currentState == State.CAMERA
+                || currentState == State.RESULT
+                || currentState == State.ERROR;
+        inputDocumentNumber.setEnabled(inputsEnabled);
+        inputBirthDate.setEnabled(inputsEnabled);
+        inputExpiryDate.setEnabled(inputsEnabled);
+        boolean hasValues = buildManualMrzKeys(
+                inputDocumentNumber.getText().toString(),
+                inputBirthDate.getText().toString(),
+                inputExpiryDate.getText().toString()
+        ) != null;
+        btnStartNfcManual.setEnabled(inputsEnabled && hasValues);
+    }
+
+    private class ManualInputWatcher implements android.text.TextWatcher {
+        @Override
+        public void beforeTextChanged(CharSequence s, int start, int count, int after) {
+        }
+
+        @Override
+        public void onTextChanged(CharSequence s, int start, int before, int count) {
+        }
+
+        @Override
+        public void afterTextChanged(android.text.Editable s) {
+            updateManualInputControls();
         }
     }
 }
