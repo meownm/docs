@@ -1,11 +1,12 @@
 import base64
+import json
 
 import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
 from app.settings import settings
-from app import main as main_module
+from app import api as api_module
 
 
 @pytest.fixture()
@@ -22,17 +23,15 @@ def client(tmp_path, monkeypatch):
 
 def test_recognize_passport_success(client, monkeypatch):
     async def fake_ollama(image_bytes: bytes):
-        return "req-1", {
-            "parsed": {
+        return "req-1", json.dumps(
+            {
                 "document_number": "123456789",
                 "date_of_birth": "1990-01-01",
                 "date_of_expiry": "2030-01-01",
-            },
-            "input_payload": {"prompt": "demo"},
-            "ollama_raw": {"message": {"content": "{}"}},
-        }
+            }
+        )
 
-    monkeypatch.setattr(main_module, "ollama_chat_with_image", fake_ollama)
+    monkeypatch.setattr(api_module, "ollama_chat_with_image", fake_ollama)
 
     response = client.post(
         "/api/passport/recognize",
@@ -41,33 +40,28 @@ def test_recognize_passport_success(client, monkeypatch):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["request_id"] == "req-1"
-    assert payload["mrz"] == {
+    assert payload == {
         "document_number": "123456789",
         "date_of_birth": "1990-01-01",
         "date_of_expiry": "2030-01-01",
     }
-    assert payload["error"] is None
 
 
-def test_recognize_passport_empty_image_returns_422(client):
+def test_recognize_passport_empty_image_returns_error_payload(client):
     response = client.post(
         "/api/passport/recognize",
         files={"image": ("passport.jpg", b"", "image/jpeg")},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert response.json() == {"error": "Empty image file"}
 
 
 def test_recognize_passport_schema_error(client, monkeypatch):
     async def fake_ollama(image_bytes: bytes):
-        return "req-2", {
-            "parsed": {"document_number": "123456789"},
-            "input_payload": {"prompt": "demo"},
-            "ollama_raw": {"message": {"content": "{}"}},
-        }
+        return "req-2", json.dumps({"document_number": "123456789"})
 
-    monkeypatch.setattr(main_module, "ollama_chat_with_image", fake_ollama)
+    monkeypatch.setattr(api_module, "ollama_chat_with_image", fake_ollama)
 
     response = client.post(
         "/api/passport/recognize",
@@ -76,17 +70,17 @@ def test_recognize_passport_schema_error(client, monkeypatch):
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["mrz"] is None
-    assert payload["error"]["error_code"] == "SCHEMA_MISMATCH"
+    assert payload == {"error": "MRZ not found in recognition result"}
 
 
-def test_store_nfc_invalid_base64_returns_422(client):
+def test_store_nfc_invalid_base64_returns_error_payload(client):
     response = client.post(
         "/api/passport/nfc",
         json={"passport": {"doc": "x"}, "face_image_b64": "not-base64"},
     )
 
-    assert response.status_code == 422
+    assert response.status_code == 200
+    assert response.json()["error"].startswith("Invalid face_image_b64:")
 
 
 def test_store_nfc_and_fetch_face_integration(client):

@@ -15,3 +15,4 @@
 | R-09 | Мобилка на Java | implemented | mobile_android_java |
 | R-10 | Логировать входы/выходы LLM в локальной SQLite | implemented | llm_logs table + insert in recognize |
 | R-11 | Проект демонстрационный, без развития | implemented | README.md |
+| R-12 | Логировать HTTP запросы в SQLite (успехи и ошибки) | implemented | backend/app/api_logging.py, backend/app/db.py, backend/tests/test_api_logging.py |
