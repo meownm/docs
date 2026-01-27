@@ -21,6 +21,7 @@ public final class BackendApi {
 
         MultipartBody body = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
+
                 .addFormDataPart("image", "passport.jpg", fileBody)
                 .build();
 

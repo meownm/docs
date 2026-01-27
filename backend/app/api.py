@@ -16,8 +16,11 @@ from app.events import event_bus
 router = APIRouter()
 
 
-@router.post("/passport/recognize")
-async def recognize_passport(image: UploadFile = File(...)):
+# -------------------------
+# Helpers
+# -------------------------
+
+async def _recognize_impl(image: UploadFile):
     image_bytes = await image.read()
     if not image_bytes:
         raise HTTPException(status_code=422, detail="Empty image file")
@@ -29,11 +32,32 @@ async def recognize_passport(image: UploadFile = File(...)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"LLM error: {e}") from e
 
+    # ВАЖНО: сейчас возвращаем сырой ответ.
+    # Если нужно строго под MRZKeys мобилки — скажи, сделаю парсер в отдельном шаге.
     return {
         "request_id": request_id,
         "raw": llm_text,
     }
 
+
+# -------------------------
+# Passport recognize
+# -------------------------
+
+# Текущий (как в твоём backend)
+@router.post("/passport/recognize")
+async def recognize_passport(image: UploadFile = File(...)):
+    return await _recognize_impl(image)
+
+# Канон мобилки: POST /recognize с multipart полем "image"
+@router.post("/recognize")
+async def recognize_mobile(image: UploadFile = File(...)):
+    return await _recognize_impl(image)
+
+
+# -------------------------
+# NFC
+# -------------------------
 
 @router.post("/passport/nfc")
 async def passport_nfc(payload: dict):
@@ -49,13 +73,17 @@ async def passport_nfc(payload: dict):
         except Exception as e:
             raise HTTPException(status_code=400, detail=f"Invalid face_image_b64: {e}") from e
 
-    # Публикуем событие в SSE
     await event_bus.publish({
         "type": "nfc_scan_success",
         "scan_id": scan_id,
     })
 
     return {"scan_id": scan_id}
+
+# Канон мобилки: POST /nfc
+@router.post("/nfc")
+async def passport_nfc_mobile(payload: dict):
+    return await passport_nfc(payload)
 
 
 @router.get("/nfc/{scan_id}/face.jpg")
@@ -65,6 +93,10 @@ async def get_nfc_face(scan_id: str):
         raise HTTPException(status_code=404, detail="Face image not found")
     return FileResponse(face_path, media_type="image/jpeg")
 
+
+# -------------------------
+# SSE events
+# -------------------------
 
 @router.get("/events")
 async def events():

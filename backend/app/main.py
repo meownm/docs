@@ -7,14 +7,18 @@ from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
 
 from app.api import router
-from app.settings import settings
 
 
 app = FastAPI(title="FastAPI", version="0.1.0")
+
+# Мобилка-канон: пути без /api
+app.include_router(router)
+
+# Swagger/Web: те же пути, но с /api
 app.include_router(router, prefix="/api")
 
 
-# Static (если папка существует)
+# Static UI (если папка существует)
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(static_dir):
     app.mount("/static", StaticFiles(directory=static_dir), name="static")
