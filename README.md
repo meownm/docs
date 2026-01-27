@@ -107,6 +107,18 @@ data: {"type":"nfc_scan_success","scan_id":"...","face_image_url":"/api/nfc/<sca
   "id": 123
 }
 ```
+Ошибка 422 (валидация обязательных полей):
+```json
+{
+  "detail": [
+    {
+      "loc": ["body", "platform"],
+      "msg": "Field required",
+      "type": "missing"
+    }
+  ]
+}
+```
 
 ### Swagger/Web
 Дублирующие пути с `/api`, например: `/api/recognize`, `/api/nfc`, `/api/events`.
@@ -115,7 +127,8 @@ data: {"type":"nfc_scan_success","scan_id":"...","face_image_url":"/api/nfc/<sca
 
 ## Логирование входов/выходов LLM и NFC
 Backend сохраняет вход/выход LLM в SQLite: `backend/data/app.db`, таблица `llm_logs`.
-NFC-сканы сохраняются в таблице `nfc_scans` с данными паспорта и путём к фото лица.
+Сохраняемые поля: `request_id`, `model`, `input_json`, `output_json`, `success`, `error`, `ts_utc`.
+NFC-сканы сохраняются в таблице `nfc_scans` с полями: `scan_id`, `ts_utc`, `passport_json`, `face_image_path`.
 
 ## Логирование ошибок приложения
 Backend сохраняет логи ошибок приложений в SQLite: `backend/data/app.db`, таблица `app_error_logs`.

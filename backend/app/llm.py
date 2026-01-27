@@ -121,51 +121,43 @@ async def ollama_chat_with_image(image_bytes: bytes) -> tuple[str, str]:
             data = r.json()
     except httpx.ConnectError as e:
         error_text = f"Ollama is not reachable at {settings.ollama_base_url}"
-        try:
-            await _log_llm_request(
-                request_id=request_id,
-                model=model,
-                input_json=input_json,
-                output_json=output_json,
-                success=success,
-                error=error_text,
-                ts_utc=ts_utc,
-            )
-        except Exception:
-            pass
+        await _log_llm_request(
+            request_id=request_id,
+            model=model,
+            input_json=input_json,
+            output_json=output_json,
+            success=success,
+            error=error_text,
+            ts_utc=ts_utc,
+        )
         raise LLMUnavailableError(error_text) from e
     except httpx.HTTPStatusError as e:
         # Ollama вернул валидный HTTP-ответ, но статус не 2xx
         body = e.response.text if e.response is not None else ""
+        output_json = body or None
         error_text = f"Ollama HTTP error: {e} body={body}"
-        try:
-            await _log_llm_request(
-                request_id=request_id,
-                model=model,
-                input_json=input_json,
-                output_json=output_json,
-                success=success,
-                error=error_text,
-                ts_utc=ts_utc,
-            )
-        except Exception:
-            pass
+        await _log_llm_request(
+            request_id=request_id,
+            model=model,
+            input_json=input_json,
+            output_json=output_json,
+            success=success,
+            error=error_text,
+            ts_utc=ts_utc,
+        )
         raise RuntimeError(error_text) from e
     except Exception as e:
         if error_text is None:
             error_text = f"Ollama call failed: {e}"
-        try:
-            await _log_llm_request(
-                request_id=request_id,
-                model=model,
-                input_json=input_json,
-                output_json=output_json,
-                success=success,
-                error=error_text,
-                ts_utc=ts_utc,
-            )
-        except Exception:
-            pass
+        await _log_llm_request(
+            request_id=request_id,
+            model=model,
+            input_json=input_json,
+            output_json=output_json,
+            success=success,
+            error=error_text,
+            ts_utc=ts_utc,
+        )
         raise RuntimeError(error_text) from e
 
     # Ожидаемый формат Ollama /api/chat:
@@ -175,18 +167,15 @@ async def ollama_chat_with_image(image_bytes: bytes) -> tuple[str, str]:
     if not isinstance(content, str):
         error_text = f"Unexpected Ollama response format: {data}"
         output_json = json.dumps(data, ensure_ascii=False)
-        try:
-            await _log_llm_request(
-                request_id=request_id,
-                model=model,
-                input_json=input_json,
-                output_json=output_json,
-                success=success,
-                error=error_text,
-                ts_utc=ts_utc,
-            )
-        except Exception:
-            pass
+        await _log_llm_request(
+            request_id=request_id,
+            model=model,
+            input_json=input_json,
+            output_json=output_json,
+            success=success,
+            error=error_text,
+            ts_utc=ts_utc,
+        )
         raise RuntimeError(error_text)
 
     output_json = json.dumps(data, ensure_ascii=False)

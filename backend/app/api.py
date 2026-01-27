@@ -119,6 +119,7 @@ async def _nfc_impl(payload: dict):
     except (binascii.Error, ValueError) as e:
         raise HTTPException(status_code=422, detail=f"Invalid face_image_b64: {e}")
 
+    ts_utc = datetime.utcnow().isoformat()
     os.makedirs(settings.files_dir, exist_ok=True)
     face_path = os.path.join(settings.files_dir, f"{scan_id}_face.jpg")
     with open(face_path, "wb") as f:
@@ -137,7 +138,7 @@ async def _nfc_impl(payload: dict):
             """,
             (
                 scan_id,
-                datetime.utcnow().isoformat(),
+                ts_utc,
                 json.dumps(passport, ensure_ascii=False),
                 face_path,
             ),
