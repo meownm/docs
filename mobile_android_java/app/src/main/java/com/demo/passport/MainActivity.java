@@ -267,6 +267,13 @@ public class MainActivity extends AppCompatActivity {
             lastErrorMessage = "NFC не поддерживается";
             newState = State.ERROR;
         }
+        if (newState == State.NFC_WAIT) {
+            String validationError = validateMrzKeys(mrzKeys);
+            if (validationError != null) {
+                lastErrorMessage = validationError;
+                newState = State.ERROR;
+            }
+        }
         currentState = newState;
         UiStateModel uiState = UiStateModel.from(newState, mrzKeys, lastErrorMessage);
         textStatus.setText(uiState.statusText);
