@@ -19,7 +19,7 @@ app.add_middleware(ApiRequestLoggingMiddleware)
 async def on_startup() -> None:
     # Инициализация БД:
     # - создание файла
-    # - создание таблиц (llm_logs, nfc_scans, api_request_logs)
+    # - создание таблиц (llm_logs, nfc_scans, api_request_logs, app_error_logs)
     await init_db()
 
 

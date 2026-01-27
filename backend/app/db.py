@@ -53,6 +53,24 @@ DDL = [
         error TEXT
     );
     """,
+
+    # -------------------------
+    # App error logs
+    # -------------------------
+    """
+    CREATE TABLE IF NOT EXISTS app_error_logs (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        ts_utc TEXT NOT NULL,
+        platform TEXT NOT NULL,
+        app_version TEXT,
+        error_message TEXT NOT NULL,
+        stacktrace TEXT,
+        context_json TEXT,
+        user_agent TEXT,
+        device_info TEXT,
+        request_id TEXT
+    );
+    """,
 ]
 
 

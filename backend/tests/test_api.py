@@ -1,5 +1,6 @@
 import base64
 import json
+import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
@@ -122,3 +123,66 @@ def test_store_nfc_and_fetch_face_integration(client):
     face_response = client.get(f"/nfc/{scan_id}/face.jpg")
     assert face_response.status_code == 200
     assert face_response.content == face_bytes
+
+
+def _fetch_error_log(db_path: str, request_id: str):
+    with sqlite3.connect(db_path) as conn:
+        conn.row_factory = sqlite3.Row
+        row = conn.execute(
+            """
+            SELECT *
+            FROM app_error_logs
+            WHERE request_id = ?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (request_id,),
+        ).fetchone()
+    return row
+
+
+def test_store_app_error_log_mobile_integration(client):
+    payload = {
+        "platform": "ios",
+        "app_version": "1.2.3",
+        "error_message": "Crash in view",
+        "stacktrace": "Traceback...",
+        "context_json": {"screen": "home"},
+        "user_agent": "MobileSafari",
+        "device_info": "iPhone15,3",
+        "request_id": "req-err-1",
+    }
+
+    response = client.post("/errors", json=payload)
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "stored"
+    assert isinstance(body["id"], int)
+
+    row = _fetch_error_log(settings_module.settings.db_path, "req-err-1")
+    assert row is not None
+    assert row["platform"] == "ios"
+    assert row["error_message"] == "Crash in view"
+    assert json.loads(row["context_json"]) == {"screen": "home"}
+
+
+def test_store_app_error_log_swagger_integration(client):
+    payload = {
+        "platform": "web",
+        "error_message": "ReferenceError: x is not defined",
+        "request_id": "req-err-2",
+    }
+
+    response = client.post("/api/errors", json=payload)
+
+    assert response.status_code == 200
+    row = _fetch_error_log(settings_module.settings.db_path, "req-err-2")
+    assert row is not None
+    assert row["platform"] == "web"
+
+
+def test_store_app_error_log_missing_required_fields(client):
+    response = client.post("/errors", json={"error_message": "missing platform"})
+
+    assert response.status_code == 422

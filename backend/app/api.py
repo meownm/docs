@@ -6,6 +6,7 @@ import os
 import uuid
 import base64
 import binascii
+from datetime import datetime, timezone
 from typing import AsyncIterator
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
@@ -14,6 +15,8 @@ from fastapi.responses import FileResponse, StreamingResponse
 from app.settings import settings
 from app.llm import ollama_chat_with_image, LLMUnavailableError
 from app.events import event_bus
+from app.db import get_db
+from app.schemas import AppErrorLogIn
 
 
 router = APIRouter()
@@ -174,3 +177,54 @@ async def events_swagger():
         _event_stream(),
         media_type="text/event-stream",
     )
+
+
+# ============================================================
+# App error logs
+# ============================================================
+
+async def _store_error_log(payload: AppErrorLogIn) -> dict:
+    ts_utc = payload.ts_utc or datetime.now(timezone.utc).isoformat()
+    context_json = (
+        json.dumps(payload.context_json, ensure_ascii=False)
+        if payload.context_json is not None
+        else None
+    )
+
+    async with get_db() as db:
+        cursor = await db.execute(
+            """
+            INSERT INTO app_error_logs (
+                ts_utc,
+                platform,
+                app_version,
+                error_message,
+                stacktrace,
+                context_json,
+                user_agent,
+                device_info,
+                request_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                ts_utc,
+                payload.platform,
+                payload.app_version,
+                payload.error_message,
+                payload.stacktrace,
+                context_json,
+                payload.user_agent,
+                payload.device_info,
+                payload.request_id,
+            ),
+        )
+        await db.commit()
+
+    return {"status": "stored", "id": cursor.lastrowid}
+
+
+# --- Канон мобилки ---
+@router.post("/errors")
+async def log_error_mobile(payload: AppErrorLogIn):
+    return await _store_error_log(payload)
