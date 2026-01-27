@@ -2,6 +2,7 @@ package com.demo.passport;
 
 import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
+import android.util.Log;
 
 import org.jmrtd.BACKey;
 import org.jmrtd.PassportService;
@@ -15,11 +16,13 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 /**
  * Каркас чтения eMRTD.
  * Требует реального NFC-чтения из чипа; MRZ используется только для BAC.
  */
 public final class NfcPassportReader {
+    private static final String TAG = "NfcPassportReader";
     static final int NFC_TIMEOUT_MS = 45000;
 
     public static Models.NfcResult readPassport(Tag tag, Models.MRZKeys mrz) {
@@ -82,8 +85,8 @@ public final class NfcPassportReader {
                 }
                 FaceImageInfo faceImageInfo = faceImages.get(0);
                 String mimeType = faceImageInfo.getMimeType();
-                if (mimeType == null || !mimeType.toLowerCase().contains("jpeg")) {
-                    throw new IllegalStateException("Unsupported face image format: " + mimeType);
+                if (!isSupportedFaceMimeType(mimeType)) {
+                    Log.w(TAG, "Unsupported face image format (sending to backend): " + mimeType);
                 }
                 faceBytes = readAllBytes(faceImageInfo.getImageInputStream());
                 if (faceBytes.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
@@ -134,6 +137,14 @@ public final class NfcPassportReader {
             output.write(buffer, 0, read);
         }
         return output.toByteArray();
+    }
+
+    static boolean isSupportedFaceMimeType(String mimeType) {
+        if (mimeType == null || mimeType.isEmpty()) {
+            return false;
+        }
+        String normalized = mimeType.toLowerCase(Locale.US);
+        return normalized.contains("jpeg") || normalized.contains("jpeg2000") || normalized.contains("jp2");
     }
 
     private NfcPassportReader() {}
