@@ -13,6 +13,8 @@ Android Java demo. Open in Android Studio and run.
 - Распознавание фото: `POST {baseUrl}/recognize`, content-type `multipart/form-data`.
 - NFC payload: `POST {baseUrl}/nfc`, content-type `application/json`.
   - payload включает `passport` и `face_image_b64` (base64 JPEG лица из NFC).
+- После каждого API-вызова приложение показывает полный raw-ответ backend (или текст ошибки сети/парсинга)
+  в нижнем отладочном блоке экрана.
 
 ## Tests
 - Unit tests находятся в `app/src/test/java` (включая проверки чтения файлов для фото и валидности authority).
