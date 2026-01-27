@@ -2,13 +2,18 @@ package com.demo.passport;
 
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
-
+import java.util.concurrent.TimeUnit;
 import okhttp3.*;
 
 import java.io.IOException;
 
 public final class BackendApi {
-    private static final OkHttpClient client = new OkHttpClient();
+    private static final OkHttpClient client = new OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .writeTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(120, TimeUnit.SECONDS)
+            .callTimeout(120, TimeUnit.SECONDS)
+            .build();
     private static final Gson gson = new Gson();
 
     public interface Callback<T> {
@@ -26,6 +31,7 @@ public final class BackendApi {
                 .build();
 
         Request req = new Request.Builder()
+
                 .url(BackendConfig.getBaseUrl() + "/recognize")
                 .post(body)
                 .build();
