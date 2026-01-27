@@ -41,6 +41,20 @@ public class UiStateModelTest {
     }
 
     @Test
+    public void from_nfcWait_enablesNfcAndShowsPrompt() {
+        UiStateModel model = UiStateModel.from(MainActivity.State.NFC_WAIT, null, null);
+
+        assertEquals("Ожидаем NFC-сканирование", model.statusText);
+        assertFalse(model.showResult);
+        assertFalse(model.takePhotoEnabled);
+        assertEquals("Номер документа: -", model.documentNumber);
+        assertEquals("Дата рождения: -", model.birthDate);
+        assertEquals("Срок действия: -", model.expiryDate);
+        assertTrue(model.enableNfc);
+        assertEquals("Приложите паспорт к NFC", model.toastMessage);
+    }
+
+    @Test
     public void from_errorState_exposesMessage() {
         UiStateModel model = UiStateModel.from(MainActivity.State.ERROR, null, "boom");
 

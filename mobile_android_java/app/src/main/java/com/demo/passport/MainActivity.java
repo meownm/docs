@@ -39,7 +39,7 @@ public class MainActivity extends AppCompatActivity {
     private TextView textBirthDate;
     private TextView textExpiryDate;
     private State currentState = State.CAMERA;
-    private Models.MRZKeys lastMrz;
+    private Models.MRZKeys mrzKeys;
     private String lastErrorMessage;
     private String pendingPhotoPath;
     private Uri pendingPhotoUri;
@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         setState(State.NFC_READING);
-        if (lastMrz == null) {
+        if (mrzKeys == null) {
             lastErrorMessage = "Нет данных MRZ для чтения NFC";
             setState(State.ERROR);
             return;
@@ -144,14 +144,13 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void sendPhotoForRecognition(byte[] jpegBytes) {
-        lastMrz = null;
         lastErrorMessage = null;
         setState(State.PHOTO_SENDING);
         BackendApi.recognizePassport(jpegBytes, new BackendApi.Callback<Models.MRZKeys>() {
             @Override
             public void onSuccess(Models.MRZKeys value) {
                 runOnUiThread(() -> {
-                    lastMrz = value;
+                    mrzKeys = value;
                     lastErrorMessage = null;
                     setState(State.NFC_WAIT);
                 });
@@ -173,7 +172,7 @@ public class MainActivity extends AppCompatActivity {
             newState = State.ERROR;
         }
         currentState = newState;
-        UiStateModel uiState = UiStateModel.from(newState, lastMrz, lastErrorMessage);
+        UiStateModel uiState = UiStateModel.from(newState, mrzKeys, lastErrorMessage);
         textStatus.setText(uiState.statusText);
         resultContainer.setVisibility(uiState.showResult ? LinearLayout.VISIBLE : LinearLayout.GONE);
         btnTakePhoto.setEnabled(uiState.takePhotoEnabled);
