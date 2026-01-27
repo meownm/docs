@@ -16,9 +16,11 @@
 **Notes:**
 - `passport` must be a non-empty object.
 - `face_image_b64` must be a non-empty base64 string of a JPEG (JP2 allowed only if convertible to JPEG).
+- `document_number` is normalized with trim + remove whitespace + uppercase.
 - Dates inside `passport` are accepted as `YYMMDD`, `YYYYMMDD`, or `YYYY-MM-DD` and are normalized to `YYMMDD`.
 - If `passport.mrz` exists, dates inside that object are normalized too.
 - Invalid JP2 payloads (including missing decoder/conversion failure) return 422 with `expected JPEG or JP2 convertible to JPEG`.
+- JPEG payloads remain valid even if a small tail follows the EOI marker (up to 64 bytes); unknown formats are rejected and not saved.
 
 **Response JSON (200):**
 ```json

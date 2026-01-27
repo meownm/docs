@@ -1,5 +1,6 @@
 import base64
 import json
+import os
 import sqlite3
 
 import pytest
@@ -74,6 +75,28 @@ def test_recognize_date_normalization_iso(client, monkeypatch):
     assert len(payload["date_of_birth"]) == 6
     assert payload["date_of_expiry"].isdigit()
     assert len(payload["date_of_expiry"]) == 6
+
+
+def test_recognize_document_number_normalization(client, monkeypatch):
+    async def fake_ollama(image_bytes: bytes):
+        return "req-1", json.dumps(
+            {
+                "document_number": " ab 123 ",
+                "date_of_birth": "1990-01-01",
+                "date_of_expiry": "2030-12-31",
+            }
+        )
+
+    monkeypatch.setattr(api_module, "ollama_chat_with_image", fake_ollama)
+
+    response = client.post(
+        "/recognize",
+        files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["document_number"] == "AB123"
 
 
 def test_recognize_date_normalization_yyyymmdd(client, monkeypatch):
@@ -171,6 +194,26 @@ def test_nfc_request_backward_compat(client, payload):
     assert data["passport"]["mrz"]["document_number"] == "AB123"
 
 
+def test_nfc_document_number_normalization(client):
+    response = client.post(
+        "/nfc",
+        json={
+            "passport": {
+                "mrz": {
+                    "document_number": " ab 123 ",
+                    "date_of_birth": "1990-01-01",
+                    "date_of_expiry": "2030-01-01",
+                }
+            },
+            "face_image_b64": base64.b64encode(JPEG_BYTES).decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["passport"]["mrz"]["document_number"] == "AB123"
+
+
 def test_nfc_face_jpg_endpoint(client):
     payload = {
         "passport": {
@@ -245,6 +288,50 @@ def test_nfc_jp2_rejected_when_unconvertible(client, monkeypatch):
 
     assert response.status_code == 422
     assert "expected JPEG" in response.json()["detail"]
+
+
+def test_nfc_jpeg_with_trailing_bytes_accepted(client):
+    jpeg_bytes = b"\xff\xd8" + (b"jpeg-data" * 10) + b"\xff\xd9" + (b"tail" * 8)
+    response = client.post(
+        "/nfc",
+        json={
+            "passport": {
+                "mrz": {
+                    "document_number": "AB123",
+                    "date_of_birth": "1990-01-01",
+                    "date_of_expiry": "2030-01-01",
+                }
+            },
+            "face_image_b64": base64.b64encode(jpeg_bytes).decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 200
+    scan_id = response.json()["scan_id"]
+    face_response = client.get(f"/api/nfc/{scan_id}/face.jpg")
+    assert face_response.status_code == 200
+    assert face_response.headers["content-type"].startswith("image/jpeg")
+    assert len(face_response.content) > 0
+
+
+def test_nfc_unknown_face_bytes_rejected_without_file(client, patched_settings):
+    response = client.post(
+        "/nfc",
+        json={
+            "passport": {
+                "mrz": {
+                    "document_number": "AB123",
+                    "date_of_birth": "1990-01-01",
+                    "date_of_expiry": "2030-01-01",
+                }
+            },
+            "face_image_b64": base64.b64encode(b"not-an-image").decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 422
+    assert "expected JPEG" in response.json()["detail"]
+    assert os.listdir(patched_settings.files_dir) == []
 
 
 def test_sse_payload_contains_face_image_url(client, monkeypatch):
