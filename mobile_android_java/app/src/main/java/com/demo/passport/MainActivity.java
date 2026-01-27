@@ -145,6 +145,12 @@ public class MainActivity extends AppCompatActivity {
             setState(State.ERROR);
             return;
         }
+        String validationError = validateNfcResult(result);
+        if (validationError != null) {
+            lastErrorMessage = validationError;
+            setState(State.ERROR);
+            return;
+        }
         StringBuilder payloadError = new StringBuilder();
         JsonObject payload = tryBuildNfcPayload(result, payloadError);
         if (payload == null) {
@@ -401,6 +407,16 @@ public class MainActivity extends AppCompatActivity {
             }
             return null;
         }
+    }
+
+    static String validateNfcResult(Models.NfcResult result) {
+        if (result == null) {
+            return "Нет NFC-данных";
+        }
+        if (result.passport == null || result.passport.isEmpty()) {
+            return "Паспортные данные не считаны с чипа";
+        }
+        return null;
     }
 
     private static boolean isBlank(String value) {

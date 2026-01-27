@@ -126,6 +126,32 @@ public class MainActivityTest {
     }
 
     @Test
+    public void validateNfcResult_returnsErrorWhenResultMissing() {
+        assertNotNull(MainActivity.validateNfcResult(null));
+    }
+
+    @Test
+    public void validateNfcResult_returnsErrorWhenPassportMissing() {
+        Models.NfcResult result = new Models.NfcResult();
+        assertNotNull(MainActivity.validateNfcResult(result));
+    }
+
+    @Test
+    public void validateNfcResult_returnsErrorWhenPassportEmpty() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        assertNotNull(MainActivity.validateNfcResult(result));
+    }
+
+    @Test
+    public void validateNfcResult_returnsNullWhenPassportPresent() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        assertNull(MainActivity.validateNfcResult(result));
+    }
+
+    @Test
     public void tryBuildNfcPayload_returnsNullAndErrorForMissingPassport() {
         Models.NfcResult result = new Models.NfcResult();
         result.faceImageJpeg = new byte[0];
