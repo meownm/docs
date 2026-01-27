@@ -5,6 +5,7 @@ import re
 import os
 import uuid
 import base64
+import binascii
 from typing import AsyncIterator
 
 from fastapi import APIRouter, UploadFile, File, HTTPException
@@ -102,20 +103,28 @@ async def recognize_passport(image: UploadFile = File(...)):
 async def _nfc_impl(payload: dict):
     scan_id = str(uuid.uuid4())
 
-    face_b64 = payload.get("face_image_b64")
-    if isinstance(face_b64, str) and face_b64:
-        os.makedirs(settings.files_dir, exist_ok=True)
-        face_path = os.path.join(settings.files_dir, f"{scan_id}_face.jpg")
-        try:
-            with open(face_path, "wb") as f:
-                f.write(base64.b64decode(face_b64))
-        except Exception as e:
-            return {"error": f"Invalid face_image_b64: {e}"}
+    passport = payload.get("passport")
+    if not isinstance(passport, dict) or not passport:
+        raise HTTPException(status_code=422, detail="Invalid passport")
 
-        await event_bus.publish({
-            "type": "nfc_scan_success",
-            "scan_id": scan_id,
-        })
+    face_b64 = payload.get("face_image_b64")
+    if not isinstance(face_b64, str) or not face_b64:
+        raise HTTPException(status_code=422, detail="Invalid face_image_b64")
+
+    try:
+        face_bytes = base64.b64decode(face_b64, validate=True)
+    except (binascii.Error, ValueError) as e:
+        raise HTTPException(status_code=422, detail=f"Invalid face_image_b64: {e}")
+
+    os.makedirs(settings.files_dir, exist_ok=True)
+    face_path = os.path.join(settings.files_dir, f"{scan_id}_face.jpg")
+    with open(face_path, "wb") as f:
+        f.write(face_bytes)
+
+    await event_bus.publish({
+        "type": "nfc_scan_success",
+        "scan_id": scan_id,
+    })
 
     return {"scan_id": scan_id}
 

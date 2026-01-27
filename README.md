@@ -61,7 +61,9 @@ Foreground dispatch NFC включается только на этапе ожи
 ```
 
 ### POST `/nfc`
-Вход: JSON (параметры) + фото (base64).
+Вход: JSON (обязательные поля):
+- `passport` — объект, не пустой.
+- `face_image_b64` — строка с base64 (обязательная, валидная).
 
 Выход 200:
 ```json
@@ -70,9 +72,13 @@ Foreground dispatch NFC включается только на этапе ожи
 }
 ```
 
-Выход 200 (ошибка — строка):
+Выход 422 (ошибка — строка):
 ```json
-{ "error": "Invalid face_image_b64: ..." }
+{ "detail": "Invalid passport" }
+```
+
+```json
+{ "detail": "Invalid face_image_b64: ..." }
 ```
 
 ### GET `/events`
