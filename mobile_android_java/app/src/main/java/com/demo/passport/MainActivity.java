@@ -2,6 +2,7 @@ package com.demo.passport;
 
 import android.app.PendingIntent;
 import android.content.Intent;
+import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.os.Bundle;
@@ -13,7 +14,14 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.camera.core.CameraSelector;
+import androidx.camera.core.Preview;
+import androidx.camera.lifecycle.ProcessCameraProvider;
+import androidx.camera.view.PreviewView;
 import androidx.core.content.FileProvider;
+import androidx.core.content.ContextCompat;
+
+import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
 import java.io.IOException;
@@ -38,11 +46,14 @@ public class MainActivity extends AppCompatActivity {
     private TextView textDocumentNumber;
     private TextView textBirthDate;
     private TextView textExpiryDate;
+    private PreviewView cameraPreview;
     private State currentState = State.CAMERA;
     private Models.MRZKeys lastMrz;
     private String lastErrorMessage;
     private String pendingPhotoPath;
     private Uri pendingPhotoUri;
+    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
+    private ProcessCameraProvider cameraProvider;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,6 +68,8 @@ public class MainActivity extends AppCompatActivity {
         textDocumentNumber = findViewById(R.id.textDocumentNumber);
         textBirthDate = findViewById(R.id.textBirthDate);
         textExpiryDate = findViewById(R.id.textExpiryDate);
+        cameraPreview = findViewById(R.id.cameraPreview);
+        cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
         btnTakePhoto.setOnClickListener(v -> {
             Log.d(TAG, "Take photo clicked");
@@ -168,6 +181,7 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void setState(State newState) {
+        State previousState = currentState;
         if ((newState == State.NFC_WAIT || newState == State.NFC_READING) && nfcAdapter == null) {
             lastErrorMessage = "NFC не поддерживается";
             newState = State.ERROR;
@@ -181,9 +195,63 @@ public class MainActivity extends AppCompatActivity {
         textBirthDate.setText(uiState.birthDate);
         textExpiryDate.setText(uiState.expiryDate);
         updateNfcDispatch(uiState.enableNfc);
+        updateCameraPreview(previousState, newState);
         if (uiState.toastMessage != null) {
             Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
         }
+    }
+
+    private void updateCameraPreview(State previousState, State newState) {
+        boolean wasCameraState = shouldBindCamera(previousState);
+        boolean isCameraState = shouldBindCamera(newState);
+        if (isCameraState && !wasCameraState) {
+            bindCameraPreview();
+        } else if (!isCameraState && wasCameraState) {
+            unbindCameraPreview();
+        }
+    }
+
+    private void bindCameraPreview() {
+        if (cameraPreview == null) {
+            return;
+        }
+        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
+                != PackageManager.PERMISSION_GRANTED) {
+            Log.w(TAG, "Camera permission not granted; preview disabled");
+            return;
+        }
+        ListenableFuture<ProcessCameraProvider> future = cameraProviderFuture;
+        if (future == null) {
+            cameraProviderFuture = ProcessCameraProvider.getInstance(this);
+            future = cameraProviderFuture;
+        }
+        future.addListener(() -> {
+            try {
+                cameraProvider = future.get();
+                bindUseCases(cameraProvider);
+            } catch (Exception e) {
+                Log.e(TAG, "Failed to bind camera preview", e);
+            }
+        }, ContextCompat.getMainExecutor(this));
+    }
+
+    private void bindUseCases(ProcessCameraProvider provider) {
+        provider.unbindAll();
+        Preview preview = new Preview.Builder().build();
+        preview.setSurfaceProvider(cameraPreview.getSurfaceProvider());
+        CameraSelector selector =
+                new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
+        provider.bindToLifecycle(this, selector, preview);
+    }
+
+    private void unbindCameraPreview() {
+        if (cameraProvider != null) {
+            cameraProvider.unbindAll();
+        }
+    }
+
+    static boolean shouldBindCamera(State state) {
+        return state == State.CAMERA;
     }
 
     private void updateNfcDispatch(boolean enable) {
