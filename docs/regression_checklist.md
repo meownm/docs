@@ -21,7 +21,7 @@
 
 | Поле | Канон | Допустимые входные форматы (backend) | Нормализация |
 |---|---|---|---|
-| `document_number` | `A-Z0-9<` (строка) | `string` | trim + remove spaces + uppercase (padding/length: без доп. паддинга, длина сохраняется) |
+| `document_number` | `A-Z0-9<` (строка) | `string` | trim + remove whitespace + uppercase (padding/length: без доп. паддинга, длина сохраняется) |
 | `date_of_birth` | `YYMMDD` | `YYMMDD`, `YYYYMMDD`, `YYYY-MM-DD` | в `YYMMDD` |
 | `date_of_expiry` | `YYMMDD` | `YYMMDD`, `YYYYMMDD`, `YYYY-MM-DD` | в `YYMMDD` |
 | `face_image_b64` | base64(JPEG), non-empty | только non-empty base64 | пустое значение запрещено |
@@ -29,6 +29,8 @@
 Примечания:
 - `JPEG2000/JP2` допускается доставлять на backend для конвертации в JPEG; если конвертация невозможна, возвращать 422 и не сохранять файл.
 - Клиент отправляет байты лица без предварительной конвертации и обрабатывает 422 от backend как ошибку чтения.
+- Допустимые MIME для лица на Android: `image/jpeg`, `image/jp2`, `image/jpeg2000`. Другие значения блокируются до отправки `/nfc`.
+- Backend принимает JPEG с корректным SOI/EOI даже при небольшом хвосте после EOI (до 64 байт) и отвергает неизвестные форматы без сохранения файла.
 
 ## Матрица совместимости (backend обязан принимать)
 

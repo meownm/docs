@@ -32,6 +32,7 @@ public class NfcPassportReaderTest {
     @Test
     public void isSupportedFaceMimeType_rejectsUnknownOrEmpty() {
         assertFalse(NfcPassportReader.isSupportedFaceMimeType("image/png"));
+        assertFalse(NfcPassportReader.isSupportedFaceMimeType("image/jpeg; charset=binary"));
         assertFalse(NfcPassportReader.isSupportedFaceMimeType(""));
         assertFalse(NfcPassportReader.isSupportedFaceMimeType(null));
     }

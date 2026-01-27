@@ -86,7 +86,7 @@ public final class NfcPassportReader {
                 FaceImageInfo faceImageInfo = faceImages.get(0);
                 String mimeType = faceImageInfo.getMimeType();
                 if (!isSupportedFaceMimeType(mimeType)) {
-                    Log.w(TAG, "Unsupported face image format (sending to backend): " + mimeType);
+                    throw new IllegalStateException("Unsupported face image format: " + mimeType);
                 }
                 faceBytes = readAllBytes(faceImageInfo.getImageInputStream());
                 if (faceBytes.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
@@ -144,7 +144,9 @@ public final class NfcPassportReader {
             return false;
         }
         String normalized = mimeType.toLowerCase(Locale.US);
-        return normalized.contains("jpeg") || normalized.contains("jpeg2000") || normalized.contains("jp2");
+        return "image/jpeg".equals(normalized)
+                || "image/jp2".equals(normalized)
+                || "image/jpeg2000".equals(normalized);
     }
 
     private NfcPassportReader() {}
