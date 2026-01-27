@@ -15,5 +15,6 @@
 | R-09 | Мобилка на Java | implemented | mobile_android_java |
 | R-10 | Логировать входы/выходы LLM в локальной SQLite | implemented | llm_logs table + insert in backend/app/llm.py |
 | R-11 | Проект демонстрационный, без развития | implemented | README.md |
-| R-12 | Логировать HTTP запросы в SQLite (успехи и ошибки) | implemented | backend/app/api_logging.py, backend/app/db.py, backend/tests/test_api_logging.py |
+| R-12 | Логировать HTTP запросы в SQLite (успехи и ошибки) | verified | backend/app/api_logging.py, backend/app/db.py, backend/tests/test_api_logging.py |
 | R-13 | Мобилка поддерживает ручной ввод MRZ для запуска NFC | implemented | MainActivity.java, activity_main.xml |
+| R-14 | Логировать request/response body HTTP запросов в SQLite с лимитом размера | verified | backend/app/api_logging.py, backend/app/db.py, backend/tests/test_api_logging.py |

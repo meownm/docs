@@ -26,6 +26,36 @@ router = APIRouter()
 # MRZ extraction (канон мобилки)
 # ============================================================
 
+def parse_date_to_yymmdd(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    if re.fullmatch(r"\d{6}", normalized):
+        return normalized
+    try:
+        if re.fullmatch(r"\d{8}", normalized):
+            parsed = datetime.strptime(normalized, "%Y%m%d")
+            return parsed.strftime("%y%m%d")
+        if re.fullmatch(r"\d{4}-\d{2}-\d{2}", normalized):
+            parsed = datetime.strptime(normalized, "%Y-%m-%d")
+            return parsed.strftime("%y%m%d")
+    except ValueError:
+        return None
+    return None
+
+
+def normalize_mrz_container(container: dict) -> dict:
+    updated = dict(container)
+    for key in ("date_of_birth", "date_of_expiry"):
+        if key in updated:
+            normalized = parse_date_to_yymmdd(str(updated[key]))
+            if normalized is not None:
+                updated[key] = normalized
+    return updated
+
+
 def extract_mrz(llm_text: str) -> dict | None:
     """
     Извлекает MRZ-поля, ожидаемые мобильным клиентом.
@@ -39,10 +69,14 @@ def extract_mrz(llm_text: str) -> dict | None:
         data = json.loads(llm_text)
         src = data.get("mrz", data)
         if all(k in src for k in ("document_number", "date_of_birth", "date_of_expiry")):
+            date_of_birth = parse_date_to_yymmdd(str(src["date_of_birth"]))
+            date_of_expiry = parse_date_to_yymmdd(str(src["date_of_expiry"]))
+            if date_of_birth is None or date_of_expiry is None:
+                return None
             return {
                 "document_number": str(src["document_number"]),
-                "date_of_birth": str(src["date_of_birth"]),
-                "date_of_expiry": str(src["date_of_expiry"]),
+                "date_of_birth": date_of_birth,
+                "date_of_expiry": date_of_expiry,
             }
     except Exception:
         pass
@@ -50,8 +84,8 @@ def extract_mrz(llm_text: str) -> dict | None:
     # --- Regex fallback ---
     patterns = {
         "document_number": r"document[_\s]?number[:=]\s*([A-Z0-9<]+)",
-        "date_of_birth": r"date[_\s]?of[_\s]?birth[:=]\s*([0-9]{6})",
-        "date_of_expiry": r"date[_\s]?of[_\s]?expiry[:=]\s*([0-9]{6})",
+        "date_of_birth": r"date[_\s]?of[_\s]?birth[:=]\s*([0-9]{6}|[0-9]{8}|[0-9]{4}-[0-9]{2}-[0-9]{2})",
+        "date_of_expiry": r"date[_\s]?of[_\s]?expiry[:=]\s*([0-9]{6}|[0-9]{8}|[0-9]{4}-[0-9]{2}-[0-9]{2})",
     }
 
     result: dict[str, str] = {}
@@ -61,7 +95,10 @@ def extract_mrz(llm_text: str) -> dict | None:
             return None
         result[key] = match.group(1)
 
-    return result
+    normalized = normalize_mrz_container(result)
+    if any(parse_date_to_yymmdd(str(normalized.get(key))) is None for key in ("date_of_birth", "date_of_expiry")):
+        return None
+    return normalized
 
 
 # ============================================================
@@ -118,6 +155,11 @@ async def _nfc_impl(payload: dict):
         face_bytes = base64.b64decode(face_b64, validate=True)
     except (binascii.Error, ValueError) as e:
         raise HTTPException(status_code=422, detail=f"Invalid face_image_b64: {e}")
+
+    if "mrz" in passport and isinstance(passport.get("mrz"), dict):
+        passport = dict(passport)
+        passport["mrz"] = normalize_mrz_container(passport["mrz"])
+    passport = normalize_mrz_container(passport)
 
     ts_utc = datetime.utcnow().isoformat()
     os.makedirs(settings.files_dir, exist_ok=True)

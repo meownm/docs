@@ -5,7 +5,11 @@ import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 import static org.junit.Assert.assertTrue;
 
+import com.google.gson.JsonObject;
+
 import org.junit.Test;
+
+import java.util.HashMap;
 
 public class MainActivityTest {
 
@@ -63,11 +67,11 @@ public class MainActivityTest {
 
     @Test
     public void buildManualMrzKeys_returnsKeysWhenAllFieldsPresent() {
-        Models.MRZKeys keys = MainActivity.buildManualMrzKeys("AB123", "1990-01-01", "2030-01-01");
+        Models.MRZKeys keys = MainActivity.buildManualMrzKeys("AB123", "900101", "300101");
         assertNotNull(keys);
         assertTrue("AB123".equals(keys.document_number));
-        assertTrue("1990-01-01".equals(keys.date_of_birth));
-        assertTrue("2030-01-01".equals(keys.date_of_expiry));
+        assertTrue("900101".equals(keys.date_of_birth));
+        assertTrue("300101".equals(keys.date_of_expiry));
     }
 
     @Test
@@ -75,5 +79,87 @@ public class MainActivityTest {
         assertNull(MainActivity.buildManualMrzKeys("", "1990-01-01", "2030-01-01"));
         assertNull(MainActivity.buildManualMrzKeys("AB123", "", "2030-01-01"));
         assertNull(MainActivity.buildManualMrzKeys("AB123", "1990-01-01", ""));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsNullWhenValuesAreValid() {
+        assertNull(MainActivity.validateMrzInputs("AB123", "900101", "300101"));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsErrorWhenValuesMissing() {
+        assertNotNull(MainActivity.validateMrzInputs("", "900101", "300101"));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsErrorWhenBirthDateInvalid() {
+        assertNotNull(MainActivity.validateMrzInputs("AB123", "1990-01-01", "300101"));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsErrorWhenExpiryDateInvalid() {
+        assertNotNull(MainActivity.validateMrzInputs("AB123", "900101", "2030-01-01"));
+    }
+
+    @Test
+    public void validateMrzInputs_returnsCombinedErrorWhenBothDatesInvalid() {
+        assertNotNull(MainActivity.validateMrzInputs("AB123", "1990-01-01", "2030-01-01"));
+    }
+
+    @Test
+    public void validateMrzKeys_returnsErrorWhenKeysMissing() {
+        assertNotNull(MainActivity.validateMrzKeys(null));
+    }
+
+    @Test
+    public void tryBuildNfcPayload_returnsPayloadForValidResult() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        result.faceImageJpeg = new byte[0];
+
+        StringBuilder error = new StringBuilder();
+        JsonObject payload = MainActivity.tryBuildNfcPayload(result, error);
+
+        assertNotNull(payload);
+        assertTrue(error.length() == 0);
+    }
+
+    @Test
+    public void validateNfcResult_returnsErrorWhenResultMissing() {
+        assertNotNull(MainActivity.validateNfcResult(null));
+    }
+
+    @Test
+    public void validateNfcResult_returnsErrorWhenPassportMissing() {
+        Models.NfcResult result = new Models.NfcResult();
+        assertNotNull(MainActivity.validateNfcResult(result));
+    }
+
+    @Test
+    public void validateNfcResult_returnsErrorWhenPassportEmpty() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        assertNotNull(MainActivity.validateNfcResult(result));
+    }
+
+    @Test
+    public void validateNfcResult_returnsNullWhenPassportPresent() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        assertNull(MainActivity.validateNfcResult(result));
+    }
+
+    @Test
+    public void tryBuildNfcPayload_returnsNullAndErrorForMissingPassport() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.faceImageJpeg = new byte[0];
+
+        StringBuilder error = new StringBuilder();
+        JsonObject payload = MainActivity.tryBuildNfcPayload(result, error);
+
+        assertNull(payload);
+        assertTrue(error.toString().contains("Passport data is missing"));
     }
 }

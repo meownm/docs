@@ -22,15 +22,23 @@ import androidx.camera.view.PreviewView;
 import androidx.core.content.FileProvider;
 import androidx.core.content.ContextCompat;
 
+import com.google.gson.JsonObject;
 import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
     private static final String TAG = "APP";
     private static final String FILE_PROVIDER_SUFFIX = ".fileprovider";
+    private static final String MRZ_DATE_REGEX = "\\d{6}";
+    private static final String MRZ_DATE_YYYYMMDD_REGEX = "\\d{8}";
+    private static final String MRZ_DATE_YYYY_MM_DD_REGEX = "\\d{4}-\\d{2}-\\d{2}";
     public enum State {
         CAMERA,
         PHOTO_SENDING,
@@ -143,7 +151,20 @@ public class MainActivity extends AppCompatActivity {
             setState(State.ERROR);
             return;
         }
-        BackendApi.sendNfcRaw(NfcPayloadBuilder.build(result), new BackendApi.Callback<Void>() {
+        String validationError = validateNfcResult(result);
+        if (validationError != null) {
+            lastErrorMessage = validationError;
+            setState(State.ERROR);
+            return;
+        }
+        StringBuilder payloadError = new StringBuilder();
+        JsonObject payload = tryBuildNfcPayload(result, payloadError);
+        if (payload == null) {
+            lastErrorMessage = "Ошибка подготовки NFC: " + payloadError;
+            setState(State.ERROR);
+            return;
+        }
+        BackendApi.sendNfcRaw(payload, new BackendApi.Callback<Void>() {
             @Override
             public void onSuccess(Void value) {
                 runOnUiThread(() -> {
@@ -231,6 +252,12 @@ public class MainActivity extends AppCompatActivity {
             public void onSuccess(Models.MRZKeys value) {
                 runOnUiThread(() -> {
                     mrzKeys = value;
+                    String validationError = validateMrzKeys(value);
+                    if (validationError != null) {
+                        lastErrorMessage = validationError;
+                        setState(State.ERROR);
+                        return;
+                    }
                     lastErrorMessage = null;
                     setState(State.NFC_WAIT);
                 });
@@ -251,6 +278,13 @@ public class MainActivity extends AppCompatActivity {
         if ((newState == State.NFC_WAIT || newState == State.NFC_READING) && nfcAdapter == null) {
             lastErrorMessage = "NFC не поддерживается";
             newState = State.ERROR;
+        }
+        if (newState == State.NFC_WAIT) {
+            String validationError = validateMrzKeys(mrzKeys);
+            if (validationError != null) {
+                lastErrorMessage = validationError;
+                newState = State.ERROR;
+            }
         }
         currentState = newState;
         UiStateModel uiState = UiStateModel.from(newState, mrzKeys, lastErrorMessage);
@@ -338,15 +372,103 @@ public class MainActivity extends AppCompatActivity {
         if (isBlank(documentNumber) || isBlank(birthDate) || isBlank(expiryDate)) {
             return null;
         }
+        String normalizedBirth = normalizeMrzDate(birthDate);
+        String normalizedExpiry = normalizeMrzDate(expiryDate);
+        if (normalizedBirth == null || normalizedExpiry == null) {
+            return null;
+        }
         Models.MRZKeys keys = new Models.MRZKeys();
         keys.document_number = documentNumber.trim();
-        keys.date_of_birth = birthDate.trim();
-        keys.date_of_expiry = expiryDate.trim();
+        keys.date_of_birth = normalizedBirth;
+        keys.date_of_expiry = normalizedExpiry;
         return keys;
+    }
+
+    static String validateMrzInputs(String documentNumber, String birthDate, String expiryDate) {
+        if (isBlank(documentNumber) || isBlank(birthDate) || isBlank(expiryDate)) {
+            return "Заполните номер документа, дату рождения и срок действия";
+        }
+        boolean birthValid = normalizeMrzDate(birthDate) != null;
+        boolean expiryValid = normalizeMrzDate(expiryDate) != null;
+        if (!birthValid && !expiryValid) {
+            return "Дата рождения и срок действия должны быть в формате YYMMDD (или YYYYMMDD, YYYY-MM-DD)";
+        }
+        if (!birthValid) {
+            return "Дата рождения должна быть в формате YYMMDD (или YYYYMMDD, YYYY-MM-DD)";
+        }
+        if (!expiryValid) {
+            return "Срок действия должен быть в формате YYMMDD (или YYYYMMDD, YYYY-MM-DD)";
+        }
+        return null;
+    }
+
+    static String validateMrzKeys(Models.MRZKeys keys) {
+        if (keys == null) {
+            return "Нет данных MRZ для запуска NFC";
+        }
+        return validateMrzInputs(keys.document_number, keys.date_of_birth, keys.date_of_expiry);
+    }
+
+    static JsonObject tryBuildNfcPayload(Models.NfcResult result, StringBuilder errorMessage) {
+        try {
+            return NfcPayloadBuilder.build(result);
+        } catch (IllegalArgumentException e) {
+            if (errorMessage != null) {
+                errorMessage.append(e.getMessage());
+            }
+            return null;
+        }
+    }
+
+    static String validateNfcResult(Models.NfcResult result) {
+        if (result == null) {
+            return "Нет NFC-данных";
+        }
+        if (result.passport == null || result.passport.isEmpty()) {
+            return "Паспортные данные не считаны с чипа";
+        }
+        return null;
     }
 
     private static boolean isBlank(String value) {
         return value == null || value.trim().isEmpty();
+    }
+
+    private static boolean isValidMrzDate(String value) {
+        return value != null && value.trim().matches(MRZ_DATE_REGEX);
+    }
+
+    private static String normalizeMrzDate(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        String trimmed = value.trim();
+        if (trimmed.matches(MRZ_DATE_REGEX)) {
+            return trimmed;
+        }
+        if (trimmed.matches(MRZ_DATE_YYYYMMDD_REGEX)) {
+            return formatMrzDate(trimmed, "yyyyMMdd");
+        }
+        if (trimmed.matches(MRZ_DATE_YYYY_MM_DD_REGEX)) {
+            return formatMrzDate(trimmed, "yyyy-MM-dd");
+        }
+        return null;
+    }
+
+    private static String formatMrzDate(String value, String pattern) {
+        SimpleDateFormat inputFormat = new SimpleDateFormat(pattern, Locale.US);
+        inputFormat.setLenient(false);
+        SimpleDateFormat outputFormat = new SimpleDateFormat("yyMMdd", Locale.US);
+        outputFormat.setLenient(false);
+        try {
+            Date parsed = inputFormat.parse(value);
+            if (parsed == null) {
+                return null;
+            }
+            return outputFormat.format(parsed);
+        } catch (ParseException e) {
+            return null;
+        }
     }
 
     static String buildFileProviderAuthority(String packageName) {
@@ -387,8 +509,15 @@ public class MainActivity extends AppCompatActivity {
                 inputBirthDate.getText().toString(),
                 inputExpiryDate.getText().toString()
         );
-        if (keys == null) {
-            lastErrorMessage = "Заполните номер документа, дату рождения и срок действия";
+        String validationError = validateMrzInputs(
+                inputDocumentNumber.getText().toString(),
+                inputBirthDate.getText().toString(),
+                inputExpiryDate.getText().toString()
+        );
+        if (validationError != null || keys == null) {
+            lastErrorMessage = validationError == null
+                    ? "Заполните номер документа, дату рождения и срок действия"
+                    : validationError;
             setState(State.ERROR);
             return;
         }
@@ -404,11 +533,11 @@ public class MainActivity extends AppCompatActivity {
         inputDocumentNumber.setEnabled(inputsEnabled);
         inputBirthDate.setEnabled(inputsEnabled);
         inputExpiryDate.setEnabled(inputsEnabled);
-        boolean hasValues = buildManualMrzKeys(
+        boolean hasValues = validateMrzInputs(
                 inputDocumentNumber.getText().toString(),
                 inputBirthDate.getText().toString(),
                 inputExpiryDate.getText().toString()
-        ) != null;
+        ) == null;
         btnStartNfcManual.setEnabled(inputsEnabled && hasValues);
     }
 

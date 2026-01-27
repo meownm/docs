@@ -69,8 +69,8 @@ def test_recognize_mobile_success(client, monkeypatch):
     payload = response.json()
     assert payload == {
         "document_number": "123456789",
-        "date_of_birth": "1990-01-01",
-        "date_of_expiry": "2030-01-01",
+        "date_of_birth": "900101",
+        "date_of_expiry": "300101",
     }
 
 
@@ -124,7 +124,12 @@ def test_store_nfc_missing_passport_returns_error_payload(client):
 
 def test_store_nfc_and_fetch_face_integration(client):
     face_bytes = b"fake-image-bytes"
-    passport_payload = {"doc": "x"}
+    passport_payload = {
+        "doc": "x",
+        "document_number": "123456789",
+        "date_of_birth": "19900101",
+        "date_of_expiry": "2030-01-01",
+    }
     response = client.post(
         "/nfc",
         json={
@@ -147,7 +152,11 @@ def test_store_nfc_and_fetch_face_integration(client):
     assert len(rows) == 1
     row = rows[0]
     assert row["face_image_path"].endswith(f"{scan_id}_face.jpg")
-    assert json.loads(row["passport_json"]) == passport_payload
+    stored_passport = json.loads(row["passport_json"])
+    assert stored_passport["doc"] == "x"
+    assert stored_passport["document_number"] == "123456789"
+    assert stored_passport["date_of_birth"] == "900101"
+    assert stored_passport["date_of_expiry"] == "300101"
 
 
 def _fetch_error_log(db_path: str, request_id: str):
