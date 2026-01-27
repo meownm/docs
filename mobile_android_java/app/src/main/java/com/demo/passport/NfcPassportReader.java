@@ -11,6 +11,9 @@ import java.util.HashMap;
 public final class NfcPassportReader {
 
     public static Models.NfcResult readPassport(Tag tag, Models.MRZKeys mrz) {
+        if (mrz == null) {
+            throw new IllegalStateException("MRZ keys are required before reading NFC passport data.");
+        }
         Models.NfcResult out = new Models.NfcResult();
         out.passport = new HashMap<>();
         out.passport.put("document_number", mrz.document_number);
