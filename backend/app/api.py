@@ -50,7 +50,9 @@ def parse_date_to_yymmdd(value: str | None) -> str | None:
 def normalize_mrz_container(container: dict) -> dict:
     updated = dict(container)
     if "document_number" in updated and updated["document_number"] is not None:
-        updated["document_number"] = str(updated["document_number"]).strip().upper()
+        document_number = str(updated["document_number"]).strip()
+        document_number = re.sub(r"\s+", "", document_number)
+        updated["document_number"] = document_number.upper()
     for key in ("date_of_birth", "date_of_expiry"):
         if key in updated:
             normalized = parse_date_to_yymmdd(str(updated[key]))
@@ -117,14 +119,19 @@ def extract_mrz(llm_text: str) -> dict | None:
     return normalized
 
 
-JPEG_MAGIC = b"\xff\xd8\xff"
+JPEG_SOI = b"\xff\xd8"
 JPEG_EOI = b"\xff\xd9"
 JP2_MAGIC = b"\x00\x00\x00\x0cjP  \r\n\x87\n"
+JPEG_TAIL_BYTES = 64
 
 
 def _detect_image_format(image_bytes: bytes) -> str:
-    if image_bytes.startswith(JPEG_MAGIC) and image_bytes.endswith(JPEG_EOI):
-        return "jpeg"
+    if image_bytes.startswith(JPEG_SOI):
+        eoi_index = image_bytes.rfind(JPEG_EOI)
+        if eoi_index != -1:
+            tail_length = len(image_bytes) - (eoi_index + len(JPEG_EOI))
+            if tail_length <= JPEG_TAIL_BYTES:
+                return "jpeg"
     if image_bytes.startswith(JP2_MAGIC):
         return "jp2"
     return "unknown"
