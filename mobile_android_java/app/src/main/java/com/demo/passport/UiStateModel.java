@@ -7,7 +7,6 @@ class UiStateModel {
     final String documentNumber;
     final String birthDate;
     final String expiryDate;
-    final boolean enableNfc;
     final String toastMessage;
 
     private UiStateModel(
@@ -17,7 +16,6 @@ class UiStateModel {
             String documentNumber,
             String birthDate,
             String expiryDate,
-            boolean enableNfc,
             String toastMessage
     ) {
         this.statusText = statusText;
@@ -26,7 +24,6 @@ class UiStateModel {
         this.documentNumber = documentNumber;
         this.birthDate = birthDate;
         this.expiryDate = expiryDate;
-        this.enableNfc = enableNfc;
         this.toastMessage = toastMessage;
     }
 
@@ -43,7 +40,6 @@ class UiStateModel {
                         emptyDocNumber,
                         emptyBirthDate,
                         emptyExpiryDate,
-                        false,
                         null
                 );
             case PHOTO_SENDING:
@@ -54,7 +50,6 @@ class UiStateModel {
                         emptyDocNumber,
                         emptyBirthDate,
                         emptyExpiryDate,
-                        false,
                         null
                 );
             case NFC_WAIT:
@@ -65,7 +60,6 @@ class UiStateModel {
                         emptyDocNumber,
                         emptyBirthDate,
                         emptyExpiryDate,
-                        true,
                         "Приложите паспорт к NFC"
                 );
             case NFC_READING:
@@ -76,7 +70,6 @@ class UiStateModel {
                         emptyDocNumber,
                         emptyBirthDate,
                         emptyExpiryDate,
-                        true,
                         null
                 );
             case RESULT:
@@ -90,7 +83,6 @@ class UiStateModel {
                         documentNumber,
                         birthDate,
                         expiryDate,
-                        false,
                         null
                 );
             case ERROR:
@@ -105,7 +97,6 @@ class UiStateModel {
                         emptyDocNumber,
                         emptyBirthDate,
                         emptyExpiryDate,
-                        false,
                         errorMessage
                 );
         }

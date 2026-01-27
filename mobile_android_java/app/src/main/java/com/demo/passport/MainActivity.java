@@ -193,8 +193,7 @@ public class MainActivity extends AppCompatActivity {
         textDocumentNumber.setText(uiState.documentNumber);
         textBirthDate.setText(uiState.birthDate);
         textExpiryDate.setText(uiState.expiryDate);
-        updateNfcDispatch(uiState.enableNfc);
-        updateCameraPreview(previousState, newState);
+        updateNfcDispatch(NfcDispatchTransition.from(previousState, newState));
         if (uiState.toastMessage != null) {
             Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
         }
@@ -257,7 +256,7 @@ public class MainActivity extends AppCompatActivity {
         if (nfcAdapter == null) {
             return;
         }
-        if (enable) {
+        if (action == NfcDispatchTransition.Action.ENABLE) {
             PendingIntent pendingIntent =
                     PendingIntent.getActivity(
                             this,
@@ -266,7 +265,7 @@ public class MainActivity extends AppCompatActivity {
                             PendingIntent.FLAG_MUTABLE
                     );
             nfcAdapter.enableForegroundDispatch(this, pendingIntent, null, null);
-        } else {
+        } else if (action == NfcDispatchTransition.Action.DISABLE) {
             nfcAdapter.disableForegroundDispatch(this);
         }
     }
