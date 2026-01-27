@@ -196,9 +196,11 @@ public class BackendApiTest {
         AtomicReference<Models.MRZKeys> result = new AtomicReference<>();
         AtomicReference<String> debug = new AtomicReference<>();
 
-        BackendApi.setDebugListener(raw -> {
-            debug.set(raw);
-            debugLatch.countDown();
+        BackendApi.setDebugListener((source, raw) -> {
+            if ("recognize".equals(source)) {
+                debug.set(raw);
+                debugLatch.countDown();
+            }
         });
 
         BackendApi.recognizePassport(new byte[] {0x05}, new BackendApi.Callback<Models.MRZKeys>() {
@@ -291,7 +293,7 @@ public class BackendApiTest {
         Models.NfcResult result = new Models.NfcResult();
         result.passport = new java.util.HashMap<>();
         result.passport.put("doc", "999");
-        result.faceImageJpeg = new byte[] {0x01, 0x02};
+        result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
 
         CountDownLatch latch = new CountDownLatch(1);
         AtomicReference<String> error = new AtomicReference<>();
@@ -328,9 +330,11 @@ public class BackendApiTest {
         CountDownLatch debugLatch = new CountDownLatch(1);
         AtomicReference<String> debug = new AtomicReference<>();
 
-        BackendApi.setDebugListener(raw -> {
-            debug.set(raw);
-            debugLatch.countDown();
+        BackendApi.setDebugListener((source, raw) -> {
+            if ("nfc".equals(source)) {
+                debug.set(raw);
+                debugLatch.countDown();
+            }
         });
 
         BackendApi.sendNfcRaw(JsonParser.parseString("{\"baz\":1}").getAsJsonObject(),
@@ -352,6 +356,96 @@ public class BackendApiTest {
         assertNotNull(error.get());
         assertTrue(error.get().contains("HTTP 400"));
         assertEquals("bad nfc", debug.get());
+    }
+
+    @Test
+    public void sendNfcRawAndParse_returnsScanResponse() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody("{\"scan_id\":\"scan-1\",\"face_image_url\":\"/api/nfc/scan-1/face.jpg\",\"passport\":{\"doc\":\"x\"}}"));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<Models.NfcScanResponse> response = new AtomicReference<>();
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.sendNfcRawAndParse(JsonParser.parseString("{\"payload\":1}").getAsJsonObject(),
+                new BackendApi.Callback<Models.NfcScanResponse>() {
+                    @Override
+                    public void onSuccess(Models.NfcScanResponse value) {
+                        response.set(value);
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        error.set(message);
+                        latch.countDown();
+                    }
+                });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertNotNull(response.get());
+        assertEquals("scan-1", response.get().scan_id);
+        assertEquals("/api/nfc/scan-1/face.jpg", response.get().face_image_url);
+        assertEquals("x", response.get().passport.get("doc").getAsString());
+        assertEquals(null, error.get());
+    }
+
+    @Test
+    public void sendNfcRawAndParse_handlesMissingFields() throws Exception {
+        server.enqueue(new MockResponse()
+                .setResponseCode(200)
+                .setBody("{\"scan_id\":\"scan-1\"}"));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.sendNfcRawAndParse(JsonParser.parseString("{\"payload\":1}").getAsJsonObject(),
+                new BackendApi.Callback<Models.NfcScanResponse>() {
+                    @Override
+                    public void onSuccess(Models.NfcScanResponse value) {
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        error.set(message);
+                        latch.countDown();
+                    }
+                });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertNotNull(error.get());
+        assertTrue(error.get().contains("missing response fields"));
+    }
+
+    @Test
+    public void fetchFaceImage_returnsBytes() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200).setBody("JPEGDATA"));
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<byte[]> result = new AtomicReference<>();
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.fetchFaceImage(server.url("/api/nfc/scan-1/face.jpg").toString(),
+                new BackendApi.Callback<byte[]>() {
+                    @Override
+                    public void onSuccess(byte[] value) {
+                        result.set(value);
+                        latch.countDown();
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        error.set(message);
+                        latch.countDown();
+                    }
+                });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertNotNull(result.get());
+        assertEquals("JPEGDATA", new String(result.get()));
+        assertEquals(null, error.get());
     }
 
     @Test

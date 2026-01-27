@@ -116,7 +116,7 @@ public class MainActivityTest {
         Models.NfcResult result = new Models.NfcResult();
         result.passport = new HashMap<>();
         result.passport.put("doc", "123");
-        result.faceImageJpeg = new byte[0];
+        result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
 
         StringBuilder error = new StringBuilder();
         JsonObject payload = MainActivity.tryBuildNfcPayload(result, error);
@@ -154,7 +154,7 @@ public class MainActivityTest {
     @Test
     public void tryBuildNfcPayload_returnsNullAndErrorForMissingPassport() {
         Models.NfcResult result = new Models.NfcResult();
-        result.faceImageJpeg = new byte[0];
+        result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
 
         StringBuilder error = new StringBuilder();
         JsonObject payload = MainActivity.tryBuildNfcPayload(result, error);

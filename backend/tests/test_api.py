@@ -122,6 +122,27 @@ def test_store_nfc_missing_passport_returns_error_payload(client):
     assert response.json() == {"detail": "Invalid passport"}
 
 
+def test_store_nfc_normalizes_nested_mrz_dates(client):
+    response = client.post(
+        "/nfc",
+        json={
+            "passport": {
+                "mrz": {
+                    "document_number": "AA1234567",
+                    "date_of_birth": "1990-01-01",
+                    "date_of_expiry": "20300101",
+                }
+            },
+            "face_image_b64": base64.b64encode(b"face").decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["passport"]["mrz"]["date_of_birth"] == "900101"
+    assert payload["passport"]["mrz"]["date_of_expiry"] == "300101"
+
+
 def test_store_nfc_and_fetch_face_integration(client):
     face_bytes = b"fake-image-bytes"
     passport_payload = {
@@ -130,7 +151,14 @@ def test_store_nfc_and_fetch_face_integration(client):
         "date_of_birth": "19900101",
         "date_of_expiry": "2030-01-01",
     }
-    response = client.post(
+    published_events = []
+
+    async def fake_publish(event):
+        published_events.append(event)
+
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(event_bus, "publish", fake_publish)
+        response = client.post(
         "/nfc",
         json={
             "passport": passport_payload,
@@ -139,7 +167,12 @@ def test_store_nfc_and_fetch_face_integration(client):
     )
 
     assert response.status_code == 200
-    scan_id = response.json()["scan_id"]
+    response_payload = response.json()
+    scan_id = response_payload["scan_id"]
+    assert response_payload["face_image_url"] == f"/api/nfc/{scan_id}/face.jpg"
+    assert response_payload["passport"]["doc"] == "x"
+    assert response_payload["passport"]["date_of_birth"] == "900101"
+    assert response_payload["passport"]["date_of_expiry"] == "300101"
 
     face_response = client.get(f"/nfc/{scan_id}/face.jpg")
     assert face_response.status_code == 200
@@ -157,6 +190,14 @@ def test_store_nfc_and_fetch_face_integration(client):
     assert stored_passport["document_number"] == "123456789"
     assert stored_passport["date_of_birth"] == "900101"
     assert stored_passport["date_of_expiry"] == "300101"
+    assert published_events == [
+        {
+            "type": "nfc_scan_success",
+            "scan_id": scan_id,
+            "face_image_url": f"/api/nfc/{scan_id}/face.jpg",
+            "passport": stored_passport,
+        }
+    ]
 
 
 def _fetch_error_log(db_path: str, request_id: str):

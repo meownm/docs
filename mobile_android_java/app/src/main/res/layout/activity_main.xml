@@ -108,6 +108,14 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Срок действия: -" />
+
+        <ImageView
+            android:id="@+id/imageFace"
+            android:layout_width="160dp"
+            android:layout_height="200dp"
+            android:layout_marginTop="8dp"
+            android:contentDescription="Фото лица из NFC"
+            android:scaleType="centerCrop" />
     </LinearLayout>
 
     <TextView
@@ -132,15 +140,59 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <TextView
-            android:id="@+id/textDebugResponse"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:fontFamily="monospace"
-            android:padding="8dp"
-            android:text="—"
-            android:textIsSelectable="true"
-            android:textSize="12sp" />
+            android:orientation="vertical"
+            android:padding="8dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Recognize response"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textDebugRecognize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:text="—"
+                android:textIsSelectable="true"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="NFC response"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textDebugNfc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:text="—"
+                android:textIsSelectable="true"
+                android:textSize="12sp" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="Face download response"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/textDebugFace"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:text="—"
+                android:textIsSelectable="true"
+                android:textSize="12sp" />
+        </LinearLayout>
     </ScrollView>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

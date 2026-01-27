@@ -42,6 +42,8 @@ Foreground dispatch NFC включается только на этапе ожи
 
 > Для мобильной команды используйте пути без `/api`.
 > Префикс `/api` нужен только для Swagger/Web и повторяет те же обработчики.
+> Подробный контракт NFC см. в `docs/contracts/nfc.md`.
+> Регрессионный чек-лист: `docs/regression_checklist.md`.
 
 ### POST `/recognize`
 Вход: `multipart/form-data` с полем `image`.
@@ -70,7 +72,9 @@ Foreground dispatch NFC включается только на этапе ожи
 Выход 200:
 ```json
 {
-  "scan_id": "uuid"
+  "scan_id": "uuid",
+  "face_image_url": "/api/nfc/<scan_id>/face.jpg",
+  "passport": { "document_number": "...", "date_of_birth": "YYMMDD", "date_of_expiry": "YYMMDD" }
 }
 ```
 
@@ -152,3 +156,9 @@ Android (unit/integration tests в `mobile_android_java/`):
 cd mobile_android_java
 gradlew test
 ```
+
+## Проверка NFC на устройстве (manual)
+1. Подготовьте MRZ (ручной ввод или результат распознавания).
+2. Запустите сканирование NFC и поднесите паспорт к телефону.
+3. После успешного BAC приложение читает DG1 и DG2, отправляет payload в backend и скачивает фото по `face_image_url`.
+4. Проверьте, что UI показывает фото и в отладочной секции сохранены ответы `/recognize`, `/nfc` и `/nfc/{scan_id}/face.jpg`.

@@ -17,7 +17,7 @@ public class NfcPayloadBuilderTest {
         Models.NfcResult result = new Models.NfcResult();
         result.passport = new HashMap<>();
         result.passport.put("doc", "123");
-        result.faceImageJpeg = "face".getBytes(StandardCharsets.UTF_8);
+        result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
 
         JsonObject payload = NfcPayloadBuilder.build(result);
 
@@ -35,18 +35,41 @@ public class NfcPayloadBuilderTest {
     @Test(expected = IllegalArgumentException.class)
     public void build_throwsWhenPassportMissing() {
         Models.NfcResult result = new Models.NfcResult();
-        result.faceImageJpeg = new byte[] {0x01};
+        result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
         NfcPayloadBuilder.build(result);
     }
 
-    @Test
-    public void build_usesEmptyBase64ForNullFaceImage() {
+    @Test(expected = IllegalArgumentException.class)
+    public void build_throwsWhenFaceImageMissing() {
         Models.NfcResult result = new Models.NfcResult();
         result.passport = new HashMap<>();
         result.passport.put("doc", "123");
+        NfcPayloadBuilder.build(result);
+    }
 
-        JsonObject payload = NfcPayloadBuilder.build(result);
+    @Test(expected = IllegalArgumentException.class)
+    public void build_throwsWhenFaceImageEmpty() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        result.faceImageJpeg = new byte[0];
+        NfcPayloadBuilder.build(result);
+    }
 
-        assertEquals("", payload.get("face_image_b64").getAsString());
+    @Test(expected = IllegalArgumentException.class)
+    public void build_throwsWhenFaceImageTooSmall() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        result.faceImageJpeg = "tiny".getBytes(StandardCharsets.UTF_8);
+        NfcPayloadBuilder.build(result);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void build_throwsWhenPassportEmpty() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
+        NfcPayloadBuilder.build(result);
     }
 }

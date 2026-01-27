@@ -3,6 +3,7 @@ package com.demo.passport;
 import android.app.PendingIntent;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
 import android.os.Bundle;
@@ -10,6 +11,7 @@ import android.provider.MediaStore;
 import android.util.Log;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -60,12 +62,17 @@ public class MainActivity extends AppCompatActivity {
     private TextView textDocumentNumber;
     private TextView textBirthDate;
     private TextView textExpiryDate;
-    private TextView textDebugResponse;
+    private ImageView imageFace;
+    private TextView textDebugRecognize;
+    private TextView textDebugNfc;
+    private TextView textDebugFace;
     private PreviewView cameraPreview;
     private State currentState = State.CAMERA;
     private Models.MRZKeys mrzKeys;
     private String lastErrorMessage;
-    private String lastDebugResponse;
+    private String lastRecognizeResponse;
+    private String lastNfcResponse;
+    private String lastFaceResponse;
     private String pendingPhotoPath;
     private Uri pendingPhotoUri;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
@@ -88,7 +95,10 @@ public class MainActivity extends AppCompatActivity {
         textDocumentNumber = findViewById(R.id.textDocumentNumber);
         textBirthDate = findViewById(R.id.textBirthDate);
         textExpiryDate = findViewById(R.id.textExpiryDate);
-        textDebugResponse = findViewById(R.id.textDebugResponse);
+        imageFace = findViewById(R.id.imageFace);
+        textDebugRecognize = findViewById(R.id.textDebugRecognize);
+        textDebugNfc = findViewById(R.id.textDebugNfc);
+        textDebugFace = findViewById(R.id.textDebugFace);
         cameraPreview = findViewById(R.id.cameraPreview);
         cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
@@ -113,9 +123,7 @@ public class MainActivity extends AppCompatActivity {
     protected void onStart() {
         super.onStart();
         BackendApi.setDebugListener(this::handleDebugResponse);
-        if (lastDebugResponse != null && textDebugResponse != null) {
-            textDebugResponse.setText(lastDebugResponse);
-        }
+        updateDebugPanel();
     }
 
     @Override
@@ -164,12 +172,38 @@ public class MainActivity extends AppCompatActivity {
             setState(State.ERROR);
             return;
         }
-        BackendApi.sendNfcRaw(payload, new BackendApi.Callback<Void>() {
+        BackendApi.sendNfcRawAndParse(payload, new BackendApi.Callback<Models.NfcScanResponse>() {
             @Override
-            public void onSuccess(Void value) {
-                runOnUiThread(() -> {
-                    lastErrorMessage = null;
-                    setState(State.RESULT);
+            public void onSuccess(Models.NfcScanResponse value) {
+                String faceUrl = ensureAbsoluteUrl(value.face_image_url);
+                if (faceUrl == null || faceUrl.trim().isEmpty()) {
+                    runOnUiThread(() -> {
+                        lastErrorMessage = "Не удалось получить URL фото";
+                        setState(State.ERROR);
+                    });
+                    return;
+                }
+                BackendApi.fetchFaceImage(faceUrl, new BackendApi.Callback<byte[]>() {
+                    @Override
+                    public void onSuccess(byte[] faceBytes) {
+                        runOnUiThread(() -> {
+                            if (imageFace != null && faceBytes.length > 0) {
+                                imageFace.setImageBitmap(
+                                        BitmapFactory.decodeByteArray(faceBytes, 0, faceBytes.length)
+                                );
+                            }
+                            lastErrorMessage = null;
+                            setState(State.RESULT);
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> {
+                            lastErrorMessage = message;
+                            setState(State.ERROR);
+                        });
+                    }
                 });
             }
 
@@ -301,13 +335,27 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
-    private void handleDebugResponse(String response) {
-        lastDebugResponse = response;
-        runOnUiThread(() -> {
-            if (textDebugResponse != null) {
-                textDebugResponse.setText(response);
-            }
-        });
+    private void handleDebugResponse(String source, String response) {
+        if ("recognize".equals(source)) {
+            lastRecognizeResponse = response;
+        } else if ("nfc".equals(source)) {
+            lastNfcResponse = response;
+        } else if ("face".equals(source)) {
+            lastFaceResponse = response;
+        }
+        runOnUiThread(this::updateDebugPanel);
+    }
+
+    private void updateDebugPanel() {
+        if (textDebugRecognize != null) {
+            textDebugRecognize.setText(lastRecognizeResponse == null ? "—" : lastRecognizeResponse);
+        }
+        if (textDebugNfc != null) {
+            textDebugNfc.setText(lastNfcResponse == null ? "—" : lastNfcResponse);
+        }
+        if (textDebugFace != null) {
+            textDebugFace.setText(lastFaceResponse == null ? "—" : lastFaceResponse);
+        }
     }
 
     private void updateCameraPreview(State previousState, State newState) {
@@ -434,11 +482,21 @@ public class MainActivity extends AppCompatActivity {
         return value == null || value.trim().isEmpty();
     }
 
+    private static String ensureAbsoluteUrl(String url) {
+        if (url == null) {
+            return null;
+        }
+        if (url.startsWith("http://") || url.startsWith("https://")) {
+            return url;
+        }
+        return BackendConfig.getBaseUrl() + url;
+    }
+
     private static boolean isValidMrzDate(String value) {
         return value != null && value.trim().matches(MRZ_DATE_REGEX);
     }
 
-    private static String normalizeMrzDate(String value) {
+    static String normalizeMrzDate(String value) {
         if (isBlank(value)) {
             return null;
         }

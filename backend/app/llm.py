@@ -21,12 +21,10 @@ def build_prompt_for_passport_recognition() -> str:
     # Сейчас цель: чтобы LLM реально отрабатывал и не падал.
     return (
         "You are a document recognition assistant.\n"
-        "Task: read the passport image and extract MRZ (if present) and key fields.\n"
-        "Return a concise JSON object with keys: mrz, fields.\n"
-        "mrz: string or null\n"
-        "fields: object with any of: surname, given_names, passport_number, nationality, "
-        "date_of_birth, sex, date_of_expiry.\n"
-        "If you cannot extract reliably, set mrz to null and fields to {}.\n"
+        "Task: read the passport image and extract MRZ keys required for BAC.\n"
+        "Return ONLY a JSON object with the exact keys:\n"
+        "document_number, date_of_birth, date_of_expiry\n"
+        "Use YYMMDD for dates. No markdown, no extra text.\n"
     )
 
 
@@ -102,6 +100,7 @@ async def ollama_chat_with_image(image_bytes: bytes) -> tuple[str, str]:
     payload: dict[str, Any] = {
         "model": model,
         "stream": False,
+        "format": "json",
         "messages": [
             {
                 "role": "user",
