@@ -246,6 +246,41 @@ public class BackendApiTest {
     }
 
     @Test
+    public void sendNfcRaw_postsNfcPayloadBuilderOutput() throws Exception {
+        server.enqueue(new MockResponse().setResponseCode(200));
+
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new java.util.HashMap<>();
+        result.passport.put("doc", "999");
+        result.faceImageJpeg = new byte[] {0x01, 0x02};
+
+        CountDownLatch latch = new CountDownLatch(1);
+        AtomicReference<String> error = new AtomicReference<>();
+
+        BackendApi.sendNfcRaw(NfcPayloadBuilder.build(result), new BackendApi.Callback<Void>() {
+            @Override
+            public void onSuccess(Void value) {
+                latch.countDown();
+            }
+
+            @Override
+            public void onError(String message) {
+                error.set(message);
+                latch.countDown();
+            }
+        });
+
+        assertTrue("Callback timeout", latch.await(5, TimeUnit.SECONDS));
+        assertEquals(null, error.get());
+
+        RecordedRequest request = server.takeRequest(5, TimeUnit.SECONDS);
+        assertNotNull(request);
+        String body = request.getBody().readUtf8();
+        assertTrue(body.contains("\"doc\":\"999\""));
+        assertTrue(body.contains("\"face_image_b64\""));
+    }
+
+    @Test
     public void sendNfcRaw_handlesHttpError() throws Exception {
         server.enqueue(new MockResponse().setResponseCode(400).setBody("bad nfc"));
 
