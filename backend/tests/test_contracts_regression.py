@@ -310,6 +310,8 @@ def test_nfc_jpeg_with_trailing_bytes_accepted(client):
     scan_id = response.json()["scan_id"]
     face_response = client.get(f"/api/nfc/{scan_id}/face.jpg")
     assert face_response.status_code == 200
+    assert face_response.headers["content-type"].startswith("image/jpeg")
+    assert len(face_response.content) > 0
     assert face_response.content == jpeg_bytes
 
 
