@@ -88,6 +88,53 @@ def test_api_request_log_error(client):
     assert response_payload["detail"] == "Not Found"
 
 
+def test_api_request_log_text_body_on_404(client):
+    response = client.post(
+        "/api/does-not-exist",
+        data="plain-text-payload",
+        headers={"content-type": "text/plain"},
+    )
+
+    assert response.status_code == 404
+
+    row = _fetch_latest_log(settings.db_path, "/api/does-not-exist")
+    assert row is not None
+    assert row["request_body"] == "plain-text-payload"
+    response_payload = json.loads(row["response_body"])
+    assert response_payload["detail"] == "Not Found"
+
+
+def test_api_request_log_form_body_on_404(client):
+    response = client.post(
+        "/api/does-not-exist",
+        data={"payload": "form-body"},
+    )
+
+    assert response.status_code == 404
+
+    row = _fetch_latest_log(settings.db_path, "/api/does-not-exist")
+    assert row is not None
+    assert row["request_body"] == "payload=form-body"
+    response_payload = json.loads(row["response_body"])
+    assert response_payload["detail"] == "Not Found"
+
+
+def test_api_request_log_422_with_invalid_json(client):
+    response = client.post(
+        "/api/passport/nfc",
+        data="not-json",
+        headers={"content-type": "application/json"},
+    )
+
+    assert response.status_code == 422
+
+    row = _fetch_latest_log(settings.db_path, "/api/passport/nfc")
+    assert row is not None
+    assert row["request_body"] == "not-json"
+    response_payload = json.loads(row["response_body"])
+    assert response_payload["detail"]
+
+
 def test_api_request_log_json_body_and_response(client):
     payload = {
         "passport": {
