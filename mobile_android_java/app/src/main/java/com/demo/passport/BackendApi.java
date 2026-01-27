@@ -20,10 +20,19 @@ public final class BackendApi {
     private static final Gson gson = new Gson();
     private static long errorReportIntervalMs = DEFAULT_ERROR_REPORT_INTERVAL_MS;
     private static long lastErrorReportAtMs = 0;
+    private static DebugListener debugListener;
 
     public interface Callback<T> {
         void onSuccess(T value);
         void onError(String message);
+    }
+
+    public interface DebugListener {
+        void onDebugResponse(String rawResponse);
+    }
+
+    public static void setDebugListener(DebugListener listener) {
+        debugListener = listener;
     }
 
     public static void recognizePassport(byte[] jpegBytes, Callback<Models.MRZKeys> cb) {
@@ -45,6 +54,7 @@ public final class BackendApi {
             @Override
             public void onFailure(Call call, IOException e) {
                 String message = "HTTP failure: " + e.getMessage();
+                emitDebugResponse(message);
                 reportError(
                         message,
                         stackTraceToString(e),
@@ -57,6 +67,7 @@ public final class BackendApi {
             @Override
             public void onResponse(Call call, Response resp) throws IOException {
                 String s = resp.body() != null ? resp.body().string() : "";
+                emitDebugResponse(s);
                 if (!resp.isSuccessful()) {
                     String message = "HTTP " + resp.code() + ": " + s;
                     reportError(
@@ -68,7 +79,20 @@ public final class BackendApi {
                     cb.onError(message);
                     return;
                 }
-                JsonObject obj = gson.fromJson(s, JsonObject.class);
+                JsonObject obj;
+                try {
+                    obj = gson.fromJson(s, JsonObject.class);
+                } catch (Exception e) {
+                    String message = "RECOGNIZE_ERROR: invalid JSON: " + e.getMessage();
+                    reportError(
+                            message,
+                            stackTraceToString(e),
+                            buildRequestContext(req, resp.code(), s),
+                            null
+                    );
+                    cb.onError(message);
+                    return;
+                }
 
                 // Ожидаем либо поля, либо error
                 if (obj.has("error")) {
@@ -111,6 +135,7 @@ public final class BackendApi {
             @Override
             public void onFailure(Call call, IOException e) {
                 String message = "HTTP failure: " + e.getMessage();
+                emitDebugResponse(message);
                 reportError(
                         message,
                         stackTraceToString(e),
@@ -123,6 +148,7 @@ public final class BackendApi {
             @Override
             public void onResponse(Call call, Response resp) throws IOException {
                 String s = resp.body() != null ? resp.body().string() : "";
+                emitDebugResponse(s);
                 if (!resp.isSuccessful()) {
                     String message = "HTTP " + resp.code() + ": " + s;
                     reportError(
@@ -207,6 +233,13 @@ public final class BackendApi {
         }
         lastErrorReportAtMs = now;
         return true;
+    }
+
+    private static void emitDebugResponse(String response) {
+        DebugListener listener = debugListener;
+        if (listener != null) {
+            listener.onDebugResponse(response);
+        }
     }
 
     private static Models.MRZKeys parseMrz(JsonObject obj) {
