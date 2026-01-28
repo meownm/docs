@@ -2,7 +2,6 @@ package com.demo.passport;
 
 import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
-import android.util.Log;
 
 import org.jmrtd.BACKey;
 import org.jmrtd.PassportService;
@@ -113,6 +112,96 @@ public final class NfcPassportReader {
             Models.NfcResult result = new Models.NfcResult();
             result.passport = passport;
             result.faceImageJpeg = faceBytes;
+            return result;
+        } catch (IllegalStateException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException("NFC read failed: " + e.getMessage(), e);
+        } finally {
+            if (service != null) {
+                try {
+                    service.close();
+                } catch (Exception ignored) {
+                }
+            }
+            try {
+                isoDep.close();
+            } catch (Exception ignored) {
+            }
+        }
+    }
+
+    /**
+     * Reads raw DG1 and DG2 bytes from the passport chip without parsing.
+     * Server-side decoding mode: all ASN.1/TLV parsing is delegated to the server.
+     *
+     * @param tag NFC tag from the chip
+     * @param mrz MRZ keys for BAC authentication
+     * @return NfcRawResult containing raw DG1/DG2 bytes
+     */
+    public static Models.NfcRawResult readPassportRaw(Tag tag, Models.MRZKeys mrz) {
+        if (mrz == null) {
+            throw new IllegalStateException("MRZ keys are required before reading NFC passport data.");
+        }
+        if (tag == null) {
+            throw new IllegalStateException("NFC tag is required for reading passport data.");
+        }
+        IsoDep isoDep = IsoDep.get(tag);
+        if (isoDep == null) {
+            throw new IllegalStateException("IsoDep technology is required for passport NFC reading.");
+        }
+
+        PassportService service = null;
+        try {
+            isoDep.connect();
+            isoDep.setTimeout(NFC_TIMEOUT_MS);
+            service = new PassportService(
+                    isoDep,
+                    PassportService.NORMAL_MAX_TRANCEIVE_LENGTH,
+                    PassportService.DEFAULT_MAX_BLOCKSIZE,
+                    false,
+                    false
+            );
+            service.open();
+            BACKey bacKey = new BACKey(
+                    mrz.document_number,
+                    mrz.date_of_birth,
+                    mrz.date_of_expiry
+            );
+            try {
+                service.doBAC(bacKey);
+            } catch (Exception e) {
+                throw new IllegalStateException("BAC failed: " + e.getMessage(), e);
+            }
+
+            // Read raw DG1 bytes without parsing
+            byte[] dg1Raw;
+            try (InputStream dg1Input = service.getInputStream(PassportService.EF_DG1)) {
+                dg1Raw = readAllBytes(dg1Input);
+            } catch (Exception e) {
+                throw new IllegalStateException("DG1 read failed: " + e.getMessage(), e);
+            }
+
+            // Read raw DG2 bytes without parsing
+            byte[] dg2Raw;
+            try (InputStream dg2Input = service.getInputStream(PassportService.EF_DG2)) {
+                dg2Raw = readAllBytes(dg2Input);
+            } catch (Exception e) {
+                throw new IllegalStateException("DG2 read failed: " + e.getMessage(), e);
+            }
+
+            // Validate minimum sizes
+            if (dg1Raw.length < 10) {
+                throw new IllegalStateException("DG1 data is too small (expected MRZ data).");
+            }
+            if (dg2Raw.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
+                throw new IllegalStateException("DG2 data is too small (expected face image).");
+            }
+
+            Models.NfcRawResult result = new Models.NfcRawResult();
+            result.dg1Raw = dg1Raw;
+            result.dg2Raw = dg2Raw;
+            result.mrzKeys = mrz;
             return result;
         } catch (IllegalStateException e) {
             throw e;

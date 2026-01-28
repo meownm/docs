@@ -442,6 +442,17 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    static JsonObject tryBuildNfcRawPayload(Models.NfcRawResult result, StringBuilder errorMessage) {
+        try {
+            return NfcPayloadBuilder.buildRaw(result);
+        } catch (IllegalArgumentException e) {
+            if (errorMessage != null) {
+                errorMessage.append(e.getMessage());
+            }
+            return null;
+        }
+    }
+
     static String validateNfcResult(Models.NfcResult result) {
         if (result == null) {
             return "Нет NFC-данных";
@@ -451,6 +462,19 @@ public class MainActivity extends AppCompatActivity {
         }
         if (result.faceImageJpeg == null || result.faceImageJpeg.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
             return "Фото лица не считано или слишком маленькое";
+        }
+        return null;
+    }
+
+    static String validateNfcRawResult(Models.NfcRawResult result) {
+        if (result == null) {
+            return "Нет NFC-данных";
+        }
+        if (result.dg1Raw == null || result.dg1Raw.length < NfcPayloadBuilder.MIN_DG1_BYTES) {
+            return "DG1 данные не считаны с чипа";
+        }
+        if (result.dg2Raw == null || result.dg2Raw.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
+            return "DG2 данные не считаны или слишком маленькие";
         }
         return null;
     }
@@ -601,9 +625,10 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void readNfcInBackground(android.nfc.Tag tag, Models.MRZKeys keys) {
-        Models.NfcResult result;
+        // Server-side decoding: read raw DG1/DG2 bytes without parsing
+        Models.NfcRawResult result;
         try {
-            result = NfcPassportReader.readPassport(tag, keys);
+            result = NfcPassportReader.readPassportRaw(tag, keys);
         } catch (Exception e) {
             runOnUiThread(() -> {
                 lastErrorMessage = "Ошибка чтения NFC: " + e.getMessage();
@@ -611,7 +636,7 @@ public class MainActivity extends AppCompatActivity {
             });
             return;
         }
-        String validationError = validateNfcResult(result);
+        String validationError = validateNfcRawResult(result);
         if (validationError != null) {
             runOnUiThread(() -> {
                 lastErrorMessage = validationError;
@@ -620,7 +645,7 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         StringBuilder payloadError = new StringBuilder();
-        JsonObject payload = tryBuildNfcPayload(result, payloadError);
+        JsonObject payload = tryBuildNfcRawPayload(result, payloadError);
         if (payload == null) {
             runOnUiThread(() -> {
                 lastErrorMessage = "Ошибка подготовки NFC: " + payloadError;
