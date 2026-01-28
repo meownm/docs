@@ -21,7 +21,7 @@
 
 | Поле | Канон | Допустимые входные форматы (backend) | Нормализация |
 |---|---|---|---|
-| `document_number` | `A-Z0-9<` (строка) | `string` | trim + remove whitespace + uppercase (padding/length: без доп. паддинга, длина сохраняется) |
+| `document_number` | `A-Z0-9<` (строка) | `string` | trim + remove ALL whitespace (spaces removed) + uppercase (padding/length: без доп. паддинга, длина сохраняется) |
 | `date_of_birth` | `YYMMDD` | `YYMMDD`, `YYYYMMDD`, `YYYY-MM-DD` | в `YYMMDD` |
 | `date_of_expiry` | `YYMMDD` | `YYMMDD`, `YYYYMMDD`, `YYYY-MM-DD` | в `YYMMDD` |
 | `face_image_b64` | base64(JPEG), non-empty | только non-empty base64 | пустое значение запрещено |
