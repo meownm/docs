@@ -22,9 +22,9 @@ public final class BackendApi {
             .callTimeout(120, TimeUnit.SECONDS)
             .build();
     private static final Gson gson = new Gson();
-    private static long errorReportIntervalMs = DEFAULT_ERROR_REPORT_INTERVAL_MS;
-    private static long lastErrorReportAtMs = 0;
-    private static DebugListener debugListener;
+    private static volatile long errorReportIntervalMs = DEFAULT_ERROR_REPORT_INTERVAL_MS;
+    private static volatile long lastErrorReportAtMs = 0;
+    private static volatile DebugListener debugListener;
 
     public interface Callback<T> {
         void onSuccess(T value);

@@ -300,17 +300,8 @@ def test_store_app_error_log_missing_required_fields(client):
     response = client.post("/errors", json={"error_message": "missing platform"})
 
     assert response.status_code == 422
-async def _drain_event_bus():
-    while True:
-        try:
-            event_bus._queue.get_nowait()
-        except asyncio.QueueEmpty:
-            break
-
-
 @pytest.mark.anyio
 async def test_sse_event_format_and_payload(patched_settings):
-    await _drain_event_bus()
     event_payload = {
         "type": "nfc_scan_success",
         "scan_id": "scan-1",
@@ -319,7 +310,12 @@ async def test_sse_event_format_and_payload(patched_settings):
     }
 
     stream = api_module._event_stream()
-    await event_bus.publish(event_payload)
+
+    async def publish_after_delay():
+        await asyncio.sleep(0.01)
+        await event_bus.publish(event_payload)
+
+    asyncio.create_task(publish_after_delay())
     message = await stream.__anext__()
 
     lines = [line for line in message.splitlines() if line]
@@ -331,11 +327,15 @@ async def test_sse_event_format_and_payload(patched_settings):
 
 @pytest.mark.anyio
 async def test_sse_event_missing_type_defaults_message(patched_settings):
-    await _drain_event_bus()
     event_payload = {"scan_id": "scan-2"}
 
     stream = api_module._event_stream()
-    await event_bus.publish(event_payload)
+
+    async def publish_after_delay():
+        await asyncio.sleep(0.01)
+        await event_bus.publish(event_payload)
+
+    asyncio.create_task(publish_after_delay())
     message = await stream.__anext__()
 
     lines = [line for line in message.splitlines() if line]

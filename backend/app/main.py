@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
@@ -11,16 +12,18 @@ from app.api_logging import ApiRequestLoggingMiddleware
 from app.db import init_db
 
 
-app = FastAPI(title="FastAPI", version="0.1.0")
-app.add_middleware(ApiRequestLoggingMiddleware)
-
-
-@app.on_event("startup")
-async def on_startup() -> None:
-    # Инициализация БД:
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: инициализация БД
     # - создание файла
     # - создание таблиц (llm_logs, nfc_scans, api_request_logs, app_error_logs)
     await init_db()
+    yield
+    # Shutdown: cleanup if needed
+
+
+app = FastAPI(title="FastAPI", version="0.1.0", lifespan=lifespan)
+app.add_middleware(ApiRequestLoggingMiddleware)
 
 
 # =========================

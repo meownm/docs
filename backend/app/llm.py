@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import httpx
@@ -74,7 +74,7 @@ async def ollama_chat_with_image(image_bytes: bytes) -> tuple[str, str]:
     """
     request_id = str(uuid.uuid4())
     model = settings.ollama_model
-    ts_utc = datetime.utcnow().isoformat()
+    ts_utc = datetime.now(timezone.utc).isoformat()
     input_json = ""
     output_json = None
     success = 0
