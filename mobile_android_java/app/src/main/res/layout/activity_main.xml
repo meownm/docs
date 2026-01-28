@@ -20,7 +20,6 @@
         android:layout_height="0dp"
         android:contentDescription="Превью камеры"
         android:background="@android:color/black"
-        app:scaleType="fitCenter"
         app:layout_constraintTop_toBottomOf="@id/textStatus"
         app:layout_constraintBottom_toTopOf="@id/btnTakePhoto"
         app:layout_constraintStart_toStartOf="parent"
@@ -109,14 +108,13 @@
             android:layout_height="wrap_content"
             android:text="Срок действия: -" />
 
-        <ImageView
-            android:id="@+id/imageFace"
-            android:layout_width="160dp"
-            android:layout_height="200dp"
-            android:layout_marginTop="8dp"
-            android:contentDescription="Фото лица из NFC"
-            android:scaleType="centerCrop" />
-    </LinearLayout>
+<ImageView
+    android:id="@+id/imageFace"
+    android:layout_width="160dp"
+    android:layout_height="200dp"
+    android:layout_marginTop="8dp"
+    android:contentDescription="@string/face_image_desc"
+    android:scaleType="centerCrop" />
 
     <TextView
         android:id="@+id/textDebugTitle"
