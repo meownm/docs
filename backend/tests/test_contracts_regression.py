@@ -214,6 +214,66 @@ def test_nfc_document_number_normalization(client):
     assert data["passport"]["mrz"]["document_number"] == "AB123"
 
 
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {
+            "passport": {
+                "mrz": {
+                    "document_number": " AB 12  34 ",
+                    "date_of_birth": "1990-01-01",
+                    "date_of_expiry": "2030-01-01",
+                }
+            },
+            "face_image_b64": base64.b64encode(JPEG_BYTES).decode("ascii"),
+        },
+        {
+            "mrz": {
+                "document_number": " AB 12  34 ",
+                "date_of_birth": "1990-01-01",
+                "date_of_expiry": "2030-01-01",
+            },
+            "face_image_b64": base64.b64encode(JPEG_BYTES).decode("ascii"),
+        },
+        {
+            "passport": {
+                "document_number": " AB 12  34 ",
+                "date_of_birth": "1990-01-01",
+                "date_of_expiry": "2030-01-01",
+            },
+            "face_image_b64": base64.b64encode(JPEG_BYTES).decode("ascii"),
+        },
+    ],
+)
+def test_nfc_document_number_whitespace_normalization_variants(client, payload):
+    response = client.post("/nfc", json=payload)
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["passport"]["mrz"]["document_number"] == "AB1234"
+
+
+def test_recognize_invalid_dates_returns_error(client, monkeypatch):
+    async def fake_ollama(image_bytes: bytes):
+        return "req-4", json.dumps(
+            {
+                "document_number": " AB 12  34 ",
+                "date_of_birth": "1990/01/01",
+                "date_of_expiry": "2030-01-01",
+            }
+        )
+
+    monkeypatch.setattr(api_module, "ollama_chat_with_image", fake_ollama)
+
+    response = client.post(
+        "/recognize",
+        files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["error"] == "MRZ not found in recognition result"
+
+
 def test_nfc_face_jpg_endpoint(client):
     payload = {
         "passport": {
