@@ -87,6 +87,7 @@
 - Для JSON запросов/ответов сохраняются полные `request_body`/`response_body` (включая StreamingResponse с `application/json`).
 - Для `text/event-stream`, multipart и бинарных ответов сохраняется placeholder (без буферизации тела).
 - При превышении лимита тела используется placeholder с размером.
+- Structured logs всегда содержат `request_id` (если нет значения — используется placeholder `n/a`).
 
 ## NFC тайминги
 - IsoDep timeout: 45000 мс (чтение не блокирует UI-поток).
