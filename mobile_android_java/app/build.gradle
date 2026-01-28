@@ -16,13 +16,15 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
-    }    packagingOptions {
+    }
+    packaging {
         resources {
             excludes += [
-                    "META-INF/NOTICE.md",
-                    "META-INF/LICENSE.md",
-                    "META-INF/NOTICE",
-                    "META-INF/LICENSE"
+                // Exclude duplicate META-INF license/notice files from JAXB/Jakarta deps.
+                "META-INF/NOTICE.md",
+                "META-INF/LICENSE.md",
+                "META-INF/NOTICE",
+                "META-INF/LICENSE"
             ]
         }
     }
