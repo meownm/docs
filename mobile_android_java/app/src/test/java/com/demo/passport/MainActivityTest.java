@@ -209,4 +209,85 @@ public class MainActivityTest {
         assertNull(payload);
         assertTrue(error.toString().contains("Passport data is missing"));
     }
+
+    // Tests for server-side decoding (NfcRawResult)
+
+    @Test
+    public void validateNfcRawResult_returnsErrorWhenResultMissing() {
+        assertNotNull(MainActivity.validateNfcRawResult(null));
+    }
+
+    @Test
+    public void validateNfcRawResult_returnsErrorWhenDg1Missing() {
+        Models.NfcRawResult result = new Models.NfcRawResult();
+        result.dg2Raw = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
+        assertNotNull(MainActivity.validateNfcRawResult(result));
+    }
+
+    @Test
+    public void validateNfcRawResult_returnsErrorWhenDg1TooSmall() {
+        Models.NfcRawResult result = new Models.NfcRawResult();
+        result.dg1Raw = new byte[NfcPayloadBuilder.MIN_DG1_BYTES - 1];
+        result.dg2Raw = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
+        assertNotNull(MainActivity.validateNfcRawResult(result));
+    }
+
+    @Test
+    public void validateNfcRawResult_returnsErrorWhenDg2Missing() {
+        Models.NfcRawResult result = new Models.NfcRawResult();
+        result.dg1Raw = new byte[NfcPayloadBuilder.MIN_DG1_BYTES];
+        assertNotNull(MainActivity.validateNfcRawResult(result));
+    }
+
+    @Test
+    public void validateNfcRawResult_returnsErrorWhenDg2TooSmall() {
+        Models.NfcRawResult result = new Models.NfcRawResult();
+        result.dg1Raw = new byte[NfcPayloadBuilder.MIN_DG1_BYTES];
+        result.dg2Raw = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES - 1];
+        assertNotNull(MainActivity.validateNfcRawResult(result));
+    }
+
+    @Test
+    public void validateNfcRawResult_returnsNullWhenDataValid() {
+        Models.NfcRawResult result = new Models.NfcRawResult();
+        result.dg1Raw = new byte[NfcPayloadBuilder.MIN_DG1_BYTES];
+        result.dg2Raw = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
+        assertNull(MainActivity.validateNfcRawResult(result));
+    }
+
+    @Test
+    public void tryBuildNfcRawPayload_returnsPayloadForValidResult() {
+        Models.NfcRawResult result = new Models.NfcRawResult();
+        result.dg1Raw = new byte[NfcPayloadBuilder.MIN_DG1_BYTES];
+        result.dg2Raw = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
+        result.mrzKeys = new Models.MRZKeys();
+        result.mrzKeys.document_number = "AB123456";
+        result.mrzKeys.date_of_birth = "900101";
+        result.mrzKeys.date_of_expiry = "300101";
+
+        StringBuilder error = new StringBuilder();
+        JsonObject payload = MainActivity.tryBuildNfcRawPayload(result, error);
+
+        assertNotNull(payload);
+        assertTrue(error.length() == 0);
+        assertTrue(payload.has("dg1_raw_b64"));
+        assertTrue(payload.has("dg2_raw_b64"));
+        assertTrue(payload.has("format"));
+    }
+
+    @Test
+    public void tryBuildNfcRawPayload_returnsNullAndErrorForMissingDg1() {
+        Models.NfcRawResult result = new Models.NfcRawResult();
+        result.dg2Raw = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
+        result.mrzKeys = new Models.MRZKeys();
+        result.mrzKeys.document_number = "AB123456";
+        result.mrzKeys.date_of_birth = "900101";
+        result.mrzKeys.date_of_expiry = "300101";
+
+        StringBuilder error = new StringBuilder();
+        JsonObject payload = MainActivity.tryBuildNfcRawPayload(result, error);
+
+        assertNull(payload);
+        assertTrue(error.toString().contains("DG1"));
+    }
 }

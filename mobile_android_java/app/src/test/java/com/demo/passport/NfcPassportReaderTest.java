@@ -37,4 +37,20 @@ public class NfcPassportReaderTest {
         assertFalse(NfcPassportReader.isSupportedFaceMimeType(""));
         assertFalse(NfcPassportReader.isSupportedFaceMimeType(null));
     }
+
+    // Tests for readPassportRaw (server-side decoding)
+
+    @Test
+    public void readPassportRaw_throwsWhenMrzMissing() {
+        assertThrows(IllegalStateException.class, () -> NfcPassportReader.readPassportRaw(null, null));
+    }
+
+    @Test
+    public void readPassportRaw_throwsWhenTagMissing() {
+        Models.MRZKeys keys = new Models.MRZKeys();
+        keys.document_number = "1234567";
+        keys.date_of_birth = "900101";
+        keys.date_of_expiry = "300101";
+        assertThrows(IllegalStateException.class, () -> NfcPassportReader.readPassportRaw(null, keys));
+    }
 }
