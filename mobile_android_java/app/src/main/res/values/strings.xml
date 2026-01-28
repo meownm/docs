@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Passport Demo</string>
+    <string name="face_image_desc">Фото лица из NFC</string>
+</resources>
