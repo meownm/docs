@@ -242,7 +242,7 @@ async def _nfc_impl(payload: dict):
         passport["mrz"] = normalize_mrz_container(payload.get("mrz"))
     passport = normalize_mrz_container(passport)
 
-    ts_utc = datetime.utcnow().isoformat()
+    ts_utc = datetime.now(timezone.utc).isoformat()
     os.makedirs(settings.files_dir, exist_ok=True)
     face_path = os.path.join(settings.files_dir, f"{scan_id}_face.jpg")
     with open(face_path, "wb") as f:

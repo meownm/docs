@@ -6,6 +6,8 @@ import android.content.pm.PackageManager;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.nfc.NfcAdapter;
+import android.nfc.Tag;
+import android.os.Build;
 import android.os.Bundle;
 import android.provider.MediaStore;
 import android.util.Log;
@@ -85,9 +87,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        ImageView imageFace = findViewById(R.id.imageFace);
-        imageFace.setScaleType(ImageView.ScaleType.CENTER_CROP);
-        setContentView(R.layout.activity_main);
         Log.d(TAG, "UI attached");
 
         btnTakePhoto = findViewById(R.id.btnTakePhoto);
@@ -101,6 +100,7 @@ public class MainActivity extends AppCompatActivity {
         textBirthDate = findViewById(R.id.textBirthDate);
         textExpiryDate = findViewById(R.id.textExpiryDate);
         imageFace = findViewById(R.id.imageFace);
+        imageFace.setScaleType(ImageView.ScaleType.CENTER_CROP);
         textDebugRecognize = findViewById(R.id.textDebugRecognize);
         textDebugNfc = findViewById(R.id.textDebugNfc);
         textDebugFace = findViewById(R.id.textDebugFace);
@@ -157,7 +157,12 @@ public class MainActivity extends AppCompatActivity {
             setState(State.ERROR);
             return;
         }
-        android.nfc.Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+        Tag tag;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG, Tag.class);
+        } else {
+            tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
+        }
         if (tag == null) {
             lastErrorMessage = "NFC-тег не найден";
             setState(State.ERROR);
