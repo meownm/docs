@@ -1,6 +1,9 @@
 package com.demo.passport;
 
 import android.util.Base64;
+
+import androidx.annotation.NonNull;
+
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import java.io.PrintWriter;
@@ -53,7 +56,7 @@ public final class BackendApi {
 
         client.newCall(req).enqueue(new okhttp3.Callback() {
             @Override
-            public void onFailure(Call call, IOException e) {
+            public void onFailure(@NonNull Call call, IOException e) {
                 String message = "HTTP failure: " + e.getMessage();
                 emitDebugResponse("recognize", message);
                 reportError(
@@ -66,7 +69,7 @@ public final class BackendApi {
             }
 
             @Override
-            public void onResponse(Call call, Response resp) throws IOException {
+            public void onResponse(@NonNull Call call, Response resp) throws IOException {
                 String s = resp.body() != null ? resp.body().string() : "";
                 emitDebugResponse("recognize", s);
                 if (!resp.isSuccessful()) {
@@ -258,7 +261,7 @@ public final class BackendApi {
             }
 
             @Override
-            public void onResponse(Call call, Response resp) throws IOException {
+            public void onResponse(@NonNull Call call, Response resp) throws IOException {
                 byte[] bytes = resp.body() != null ? resp.body().bytes() : new byte[0];
                 String debugPayload = bytes.length == 0 ? "" : Base64.encodeToString(bytes, Base64.NO_WRAP);
                 emitDebugResponse("face", debugPayload);
