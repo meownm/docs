@@ -2,6 +2,7 @@ package com.demo.passport;
 
 import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
+import android.util.Log;
 
 import org.jmrtd.BACKey;
 import org.jmrtd.PassportService;
@@ -15,11 +16,14 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 /**
  * Каркас чтения eMRTD.
  * Требует реального NFC-чтения из чипа; MRZ используется только для BAC.
  */
 public final class NfcPassportReader {
+    private static final String TAG = "NfcPassportReader";
+    static final int NFC_TIMEOUT_MS = 45000;
 
     public static Models.NfcResult readPassport(Tag tag, Models.MRZKeys mrz) {
         if (mrz == null) {
@@ -36,7 +40,7 @@ public final class NfcPassportReader {
         PassportService service = null;
         try {
             isoDep.connect();
-            isoDep.setTimeout(10000);
+            isoDep.setTimeout(NFC_TIMEOUT_MS);
             service = new PassportService(
                     isoDep,
                     PassportService.NORMAL_MAX_TRANCEIVE_LENGTH,
@@ -81,10 +85,16 @@ public final class NfcPassportReader {
                 }
                 FaceImageInfo faceImageInfo = faceImages.get(0);
                 String mimeType = faceImageInfo.getMimeType();
-                if (mimeType == null || !mimeType.toLowerCase().contains("jpeg")) {
-                    throw new IllegalStateException("Unsupported face image format: " + mimeType);
+                if (!isSupportedFaceMimeType(mimeType)) {
+                    throw new IllegalStateException(
+                            "Unsupported face image format (expected image/jpeg, image/jp2, image/jpeg2000): "
+                                    + mimeType
+                    );
                 }
                 faceBytes = readAllBytes(faceImageInfo.getImageInputStream());
+                if (faceBytes.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
+                    throw new IllegalStateException("Face image is missing or too small.");
+                }
             } catch (Exception e) {
                 throw new IllegalStateException("DG2 read failed: " + e.getMessage(), e);
             }
@@ -130,6 +140,16 @@ public final class NfcPassportReader {
             output.write(buffer, 0, read);
         }
         return output.toByteArray();
+    }
+
+    static boolean isSupportedFaceMimeType(String mimeType) {
+        if (mimeType == null || mimeType.isEmpty()) {
+            return false;
+        }
+        String normalized = mimeType.toLowerCase(Locale.US);
+        return "image/jpeg".equals(normalized)
+                || "image/jp2".equals(normalized)
+                || "image/jpeg2000".equals(normalized);
     }
 
     private NfcPassportReader() {}

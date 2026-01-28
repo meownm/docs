@@ -6,6 +6,7 @@ import os
 import uuid
 import base64
 import binascii
+import io
 from datetime import datetime, timezone
 from typing import AsyncIterator
 
@@ -49,7 +50,9 @@ def parse_date_to_yymmdd(value: str | None) -> str | None:
 def normalize_mrz_container(container: dict) -> dict:
     updated = dict(container)
     if "document_number" in updated and updated["document_number"] is not None:
-        updated["document_number"] = str(updated["document_number"]).strip().upper()
+        document_number = str(updated["document_number"]).strip()
+        document_number = re.sub(r"\s+", "", document_number)
+        updated["document_number"] = document_number.upper()
     for key in ("date_of_birth", "date_of_expiry"):
         if key in updated:
             normalized = parse_date_to_yymmdd(str(updated[key]))
@@ -116,6 +119,52 @@ def extract_mrz(llm_text: str) -> dict | None:
     return normalized
 
 
+JPEG_SOI = b"\xff\xd8"
+JPEG_EOI = b"\xff\xd9"
+JP2_MAGIC = b"\x00\x00\x00\x0cjP  \r\n\x87\n"
+JPEG_TAIL_BYTES = 64
+
+
+def _detect_image_format(image_bytes: bytes) -> str:
+    if image_bytes.startswith(JPEG_SOI):
+        eoi_index = image_bytes.rfind(JPEG_EOI)
+        if eoi_index != -1:
+            tail_length = len(image_bytes) - (eoi_index + len(JPEG_EOI))
+            if tail_length <= JPEG_TAIL_BYTES:
+                return "jpeg"
+    if image_bytes.startswith(JP2_MAGIC):
+        return "jp2"
+    return "unknown"
+
+
+def _convert_jp2_to_jpeg(image_bytes: bytes) -> bytes | None:
+    try:
+        from PIL import Image, UnidentifiedImageError
+    except ImportError:
+        return None
+
+    try:
+        image = Image.open(io.BytesIO(image_bytes))
+        rgb_image = image.convert("RGB")
+        buffer = io.BytesIO()
+        rgb_image.save(buffer, format="JPEG")
+        jpeg_bytes = buffer.getvalue()
+        if not jpeg_bytes:
+            return None
+        return jpeg_bytes
+    except (UnidentifiedImageError, OSError, ValueError):
+        return None
+
+
+def _ensure_jpeg_bytes(image_bytes: bytes) -> bytes | None:
+    image_format = _detect_image_format(image_bytes)
+    if image_format == "jpeg":
+        return image_bytes
+    if image_format == "jp2":
+        return _convert_jp2_to_jpeg(image_bytes)
+    return None
+
+
 # ============================================================
 # Passport recognition
 # ============================================================
@@ -173,6 +222,13 @@ async def _nfc_impl(payload: dict):
     except (binascii.Error, ValueError) as e:
         raise HTTPException(status_code=422, detail=f"Invalid face_image_b64: {e}")
 
+    jpeg_bytes = _ensure_jpeg_bytes(face_bytes)
+    if jpeg_bytes is None:
+        raise HTTPException(
+            status_code=422,
+            detail="Invalid face_image_b64: expected JPEG or JP2 convertible to JPEG",
+        )
+
     passport = dict(passport)
     if "mrz" in passport and isinstance(passport.get("mrz"), dict):
         passport["mrz"] = normalize_mrz_container(passport["mrz"])
@@ -190,7 +246,7 @@ async def _nfc_impl(payload: dict):
     os.makedirs(settings.files_dir, exist_ok=True)
     face_path = os.path.join(settings.files_dir, f"{scan_id}_face.jpg")
     with open(face_path, "wb") as f:
-        f.write(face_bytes)
+        f.write(jpeg_bytes)
 
     async with get_db() as conn:
         await conn.execute(
@@ -263,15 +319,6 @@ async def _event_stream() -> AsyncIterator[str]:
 # --- Канон мобилки ---
 @router.get("/events")
 async def events_mobile():
-    return StreamingResponse(
-        _event_stream(),
-        media_type="text/event-stream",
-    )
-
-
-# --- Swagger / Web ---
-@router.get("/api/events")
-async def events_swagger():
     return StreamingResponse(
         _event_stream(),
         media_type="text/event-stream",

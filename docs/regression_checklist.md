@@ -3,7 +3,10 @@
 ## Сквозной сценарий (ручной)
 1. Ввести `document_number` + даты (в любом допустимом формате) вручную.
    - Ожидаемо: мобильное приложение нормализует и показывает `YYMMDD` в состоянии/отладке.
+   - Ожидаемо: при возврате в `CAMERA`-state превью камеры не остается пустым (при наличии permissions).
+   - Ожидаемо: лишние переходы между `CAMERA`/`ERROR` не приводят к повторному биндингу без смены состояния.
 2. Запустить NFC-сценарий и дождаться результата.
+   - Ожидаемо: чтение NFC выполняется в background (UI не блокируется).
    - Ожидаемо: есть ненулевой `faceImageJpeg` до отправки на backend.
    - Если нет — понятная ошибка, запрос `/nfc` не отправляется.
 3. POST `/nfc`.
@@ -18,13 +21,17 @@
 
 | Поле | Канон | Допустимые входные форматы (backend) | Нормализация |
 |---|---|---|---|
-| `document_number` | `A-Z0-9<` (строка) | `string` | trim + uppercase |
+| `document_number` | `A-Z0-9<` (строка) | `string` | trim + remove ALL whitespace (spaces removed) + uppercase (padding/length: без доп. паддинга, длина сохраняется) |
 | `date_of_birth` | `YYMMDD` | `YYMMDD`, `YYYYMMDD`, `YYYY-MM-DD` | в `YYMMDD` |
 | `date_of_expiry` | `YYMMDD` | `YYMMDD`, `YYYYMMDD`, `YYYY-MM-DD` | в `YYMMDD` |
 | `face_image_b64` | base64(JPEG), non-empty | только non-empty base64 | пустое значение запрещено |
 
 Примечания:
-- `JPEG2000` не должен попадать на backend без явной поддержки. По умолчанию — конвертировать в JPEG.
+- `JPEG2000/JP2` допускается доставлять на backend для конвертации в JPEG; если конвертация невозможна, возвращать 422 и не сохранять файл.
+- Клиент отправляет байты лица без предварительной конвертации и обрабатывает 422 от backend как ошибку чтения.
+- Допустимые MIME для лица на Android: `image/jpeg`, `image/jp2`, `image/jpeg2000`. Другие значения блокируются до отправки `/nfc`.
+- При неизвестном MIME Android показывает понятную ошибку (Unsupported face image format) и не отправляет `/nfc`.
+- Backend принимает JPEG с корректным SOI/EOI даже при небольшом хвосте после EOI (до 64 байт) и отвергает неизвестные форматы без сохранения файла.
 
 ## Матрица совместимости (backend обязан принимать)
 
@@ -76,5 +83,25 @@
 - `GET /nfc/{scan_id}/face.jpg` не возвращает `image/jpeg` или тело пустое.
 - Потеря/искажение ключей MRZ (`document_number`, `date_of_birth`, `date_of_expiry`).
 
+## API request logs
+- Для JSON запросов/ответов сохраняются полные `request_body`/`response_body` (включая StreamingResponse с `application/json`).
+- Для `text/event-stream`, multipart и бинарных ответов сохраняется placeholder (без буферизации тела).
+- При превышении лимита тела используется placeholder с размером.
+- Structured logs всегда содержат `request_id` (если нет значения — используется placeholder `n/a`).
+
+## NFC тайминги
+- IsoDep timeout: 45000 мс (чтение не блокирует UI-поток).
+
+## Backend env compatibility
+- Backend читает `BACKEND_HOST`/`BACKEND_PORT` и `OLLAMA_TIMEOUT_SECONDS` с fallback на `APP_HOST`/`APP_PORT` и `OLLAMA_TIMEOUT_SEC`.
+- Некорректные числовые значения (например, `BACKEND_PORT=abc`) игнорируются и заменяются дефолтами.
+- Проверка: `backend/tests/test_settings_env.py`, `backend/tests/test_settings_env_integration.py`.
+
+## SSE маршруты
+- Канонический: `/api/events`.
+- Legacy: `/events` (должен работать).
+- `/api/api/events` не должен появляться.
+
 ## Обязательные тесты
-См. `backend/tests/test_contracts_regression.py` и `mobile_android_java/app/src/test/java/com/demo/passport/DateNormalizeTest.java`.
+См. `backend/tests/test_contracts_regression.py`, `mobile_android_java/app/src/test/java/com/demo/passport/DateNormalizeTest.java`,
+`mobile_android_java/app/src/test/java/com/demo/passport/MainActivityTest.java`.

@@ -26,9 +26,39 @@ public class NfcResultIntegrationTest {
     }
 
     @Test
+    public void validateThenBuildPayload_succeedsForNonJpegBytes() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
+        byte[] faceBytes = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
+        byte[] jp2Signature = new byte[] {0x00, 0x00, 0x00, 0x0c, 0x6a, 0x50, 0x20, 0x20};
+        System.arraycopy(jp2Signature, 0, faceBytes, 0, jp2Signature.length);
+        result.faceImageJpeg = faceBytes;
+
+        String validationError = MainActivity.validateNfcResult(result);
+        JsonObject payload = MainActivity.tryBuildNfcPayload(result, new StringBuilder());
+
+        assertNull(validationError);
+        assertNotNull(payload);
+    }
+
+    @Test
     public void validateThenBuildPayload_failsWhenPassportMissing() {
         Models.NfcResult result = new Models.NfcResult();
         result.faceImageJpeg = new byte[NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES];
+
+        String validationError = MainActivity.validateNfcResult(result);
+        JsonObject payload = MainActivity.tryBuildNfcPayload(result, new StringBuilder());
+
+        assertNotNull(validationError);
+        assertNull(payload);
+    }
+
+    @Test
+    public void validateThenBuildPayload_failsWhenFaceMissing() {
+        Models.NfcResult result = new Models.NfcResult();
+        result.passport = new HashMap<>();
+        result.passport.put("doc", "123");
 
         String validationError = MainActivity.validateNfcResult(result);
         JsonObject payload = MainActivity.tryBuildNfcPayload(result, new StringBuilder());

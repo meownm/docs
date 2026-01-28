@@ -4,11 +4,13 @@ import sqlite3
 
 import pytest
 from fastapi.testclient import TestClient
+from fastapi.responses import StreamingResponse
 
 from app.main import app
 from app.settings import settings
 from app import api as api_module
 
+JPEG_BYTES = b"\xff\xd8\xff" + (b"jpeg-bytes" * 12) + b"\xff\xd9"
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch):
@@ -144,7 +146,7 @@ def test_api_request_log_json_body_and_response(client):
             "date_of_birth": "900101",
             "date_of_expiry": "300101",
         },
-        "face_image_b64": base64.b64encode(b"tiny-face").decode("utf-8"),
+        "face_image_b64": base64.b64encode(JPEG_BYTES).decode("utf-8"),
     }
 
     response = client.post("/api/passport/nfc", json=payload)
@@ -160,7 +162,7 @@ def test_api_request_log_json_body_and_response(client):
 
 
 def test_api_request_log_large_body_placeholder(client):
-    large_bytes = b"a" * 70000
+    large_bytes = b"\xff\xd8\xff" + (b"a" * 70000) + b"\xff\xd9"
     payload = {
         "passport": {
             "document_number": "987654321",
@@ -186,7 +188,7 @@ def test_api_request_log_binary_response_placeholder(client):
             "date_of_birth": "920101",
             "date_of_expiry": "320101",
         },
-        "face_image_b64": base64.b64encode(b"binary-face").decode("utf-8"),
+        "face_image_b64": base64.b64encode(JPEG_BYTES).decode("utf-8"),
     }
 
     response = client.post("/api/passport/nfc", json=payload)
@@ -199,3 +201,22 @@ def test_api_request_log_binary_response_placeholder(client):
     row = _fetch_latest_log(settings.db_path, f"/api/nfc/{scan_id}/face.jpg")
     assert row is not None
     _parse_placeholder(row["response_body"])
+
+
+def test_api_request_log_streaming_json_response(client):
+    if not any(route.path == "/api/stream-json" for route in app.routes):
+        async def stream_json():
+            async def iterator():
+                yield b'{"status":"ok"}'
+
+            return StreamingResponse(iterator(), media_type="application/json")
+
+        app.add_api_route("/api/stream-json", stream_json, methods=["GET"])
+
+    response = client.get("/api/stream-json")
+    assert response.status_code == 200
+
+    row = _fetch_latest_log(settings.db_path, "/api/stream-json")
+    assert row is not None
+    response_payload = json.loads(row["response_body"])
+    assert response_payload["status"] == "ok"

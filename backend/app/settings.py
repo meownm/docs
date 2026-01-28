@@ -13,14 +13,17 @@ def _env_int(key: str, default: int) -> int:
     v = os.getenv(key)
     if v is None or v == "":
         return default
-    return int(v)
+    try:
+        return int(v)
+    except ValueError:
+        return default
 
 
 @dataclass
 class Settings:
     # Server
-    host: str = _env("APP_HOST", "127.0.0.1")
-    port: int = _env_int("APP_PORT", 30450)
+    host: str = _env("BACKEND_HOST", _env("APP_HOST", "127.0.0.1"))
+    port: int = _env_int("BACKEND_PORT", _env_int("APP_PORT", 30450))
 
     # Files
     data_dir: str = _env("DATA_DIR", "./data")
@@ -29,7 +32,7 @@ class Settings:
     # Ollama
     ollama_base_url: str = _env("OLLAMA_BASE_URL", "http://127.0.0.1:11434")
     ollama_model: str = _env("OLLAMA_MODEL", "qwen3-vl:30b")
-    ollama_timeout_sec: int = _env_int("OLLAMA_TIMEOUT_SEC", 120)
+    ollama_timeout_sec: int = _env_int("OLLAMA_TIMEOUT_SECONDS", _env_int("OLLAMA_TIMEOUT_SEC", 120))
     db_path: str = _env("DB_PATH", "./data/app.db")
 
 

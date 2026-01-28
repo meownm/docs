@@ -33,6 +33,8 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Locale;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -77,6 +79,7 @@ public class MainActivity extends AppCompatActivity {
     private Uri pendingPhotoUri;
     private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
     private ProcessCameraProvider cameraProvider;
+    private ExecutorService nfcExecutor;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -116,6 +119,7 @@ public class MainActivity extends AppCompatActivity {
         inputExpiryDate.addTextChangedListener(inputWatcher);
 
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
+        nfcExecutor = Executors.newSingleThreadExecutor();
         setState(State.CAMERA);
     }
 
@@ -130,6 +134,14 @@ public class MainActivity extends AppCompatActivity {
     protected void onStop() {
         super.onStop();
         BackendApi.setDebugListener(null);
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        if (nfcExecutor != null) {
+            nfcExecutor.shutdownNow();
+        }
     }
 
     @Override
@@ -151,70 +163,11 @@ public class MainActivity extends AppCompatActivity {
         }
         lastErrorMessage = null;
         setState(State.NFC_READING);
-        Models.NfcResult result;
-        try {
-            result = NfcPassportReader.readPassport(tag, mrzKeys);
-        } catch (Exception e) {
-            lastErrorMessage = "Ошибка чтения NFC: " + e.getMessage();
-            setState(State.ERROR);
-            return;
+        Models.MRZKeys keysSnapshot = mrzKeys;
+        if (nfcExecutor == null) {
+            nfcExecutor = Executors.newSingleThreadExecutor();
         }
-        String validationError = validateNfcResult(result);
-        if (validationError != null) {
-            lastErrorMessage = validationError;
-            setState(State.ERROR);
-            return;
-        }
-        StringBuilder payloadError = new StringBuilder();
-        JsonObject payload = tryBuildNfcPayload(result, payloadError);
-        if (payload == null) {
-            lastErrorMessage = "Ошибка подготовки NFC: " + payloadError;
-            setState(State.ERROR);
-            return;
-        }
-        BackendApi.sendNfcRawAndParse(payload, new BackendApi.Callback<Models.NfcScanResponse>() {
-            @Override
-            public void onSuccess(Models.NfcScanResponse value) {
-                String faceUrl = ensureAbsoluteUrl(value.face_image_url);
-                if (faceUrl == null || faceUrl.trim().isEmpty()) {
-                    runOnUiThread(() -> {
-                        lastErrorMessage = "Не удалось получить URL фото";
-                        setState(State.ERROR);
-                    });
-                    return;
-                }
-                BackendApi.fetchFaceImage(faceUrl, new BackendApi.Callback<byte[]>() {
-                    @Override
-                    public void onSuccess(byte[] faceBytes) {
-                        runOnUiThread(() -> {
-                            if (imageFace != null && faceBytes.length > 0) {
-                                imageFace.setImageBitmap(
-                                        BitmapFactory.decodeByteArray(faceBytes, 0, faceBytes.length)
-                                );
-                            }
-                            lastErrorMessage = null;
-                            setState(State.RESULT);
-                        });
-                    }
-
-                    @Override
-                    public void onError(String message) {
-                        runOnUiThread(() -> {
-                            lastErrorMessage = message;
-                            setState(State.ERROR);
-                        });
-                    }
-                });
-            }
-
-            @Override
-            public void onError(String message) {
-                runOnUiThread(() -> {
-                    lastErrorMessage = message;
-                    setState(State.ERROR);
-                });
-            }
-        });
+        nfcExecutor.execute(() -> readNfcInBackground(tag, keysSnapshot));
     }
 
     @Override
@@ -285,8 +238,8 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onSuccess(Models.MRZKeys value) {
                 runOnUiThread(() -> {
-                    mrzKeys = value;
-                    String validationError = validateMrzKeys(value);
+                    mrzKeys = normalizeMrzKeys(value);
+                    String validationError = validateMrzKeys(mrzKeys);
                     if (validationError != null) {
                         lastErrorMessage = validationError;
                         setState(State.ERROR);
@@ -330,6 +283,7 @@ public class MainActivity extends AppCompatActivity {
         textExpiryDate.setText(uiState.expiryDate);
         updateNfcDispatch(NfcDispatchTransition.from(previousState, newState));
         updateManualInputControls();
+        updateCameraPreview(previousState, newState);
         if (uiState.toastMessage != null) {
             Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
         }
@@ -359,13 +313,21 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void updateCameraPreview(State previousState, State newState) {
-        boolean wasCameraState = shouldBindCamera(previousState);
+        if (!shouldUpdateCameraPreview(previousState, newState)) {
+            return;
+        }
         boolean isCameraState = shouldBindCamera(newState);
-        if (isCameraState && !wasCameraState) {
+        if (isCameraState) {
             bindCameraPreview();
-        } else if (!isCameraState && wasCameraState) {
+        } else {
             unbindCameraPreview();
         }
+    }
+
+    static boolean shouldUpdateCameraPreview(State previousState, State newState) {
+        boolean wasCameraState = shouldBindCamera(previousState);
+        boolean isCameraState = shouldBindCamera(newState);
+        return wasCameraState != isCameraState;
     }
 
     private void bindCameraPreview() {
@@ -420,20 +382,25 @@ public class MainActivity extends AppCompatActivity {
         if (isBlank(documentNumber) || isBlank(birthDate) || isBlank(expiryDate)) {
             return null;
         }
+        String normalizedDocumentNumber = normalizeDocumentNumber(documentNumber);
+        if (isBlank(normalizedDocumentNumber)) {
+            return null;
+        }
         String normalizedBirth = normalizeMrzDate(birthDate);
         String normalizedExpiry = normalizeMrzDate(expiryDate);
         if (normalizedBirth == null || normalizedExpiry == null) {
             return null;
         }
         Models.MRZKeys keys = new Models.MRZKeys();
-        keys.document_number = documentNumber.trim();
+        keys.document_number = normalizedDocumentNumber;
         keys.date_of_birth = normalizedBirth;
         keys.date_of_expiry = normalizedExpiry;
         return keys;
     }
 
     static String validateMrzInputs(String documentNumber, String birthDate, String expiryDate) {
-        if (isBlank(documentNumber) || isBlank(birthDate) || isBlank(expiryDate)) {
+        String normalizedDocumentNumber = normalizeDocumentNumber(documentNumber);
+        if (isBlank(normalizedDocumentNumber) || isBlank(birthDate) || isBlank(expiryDate)) {
             return "Заполните номер документа, дату рождения и срок действия";
         }
         boolean birthValid = normalizeMrzDate(birthDate) != null;
@@ -475,6 +442,9 @@ public class MainActivity extends AppCompatActivity {
         if (result.passport == null || result.passport.isEmpty()) {
             return "Паспортные данные не считаны с чипа";
         }
+        if (result.faceImageJpeg == null || result.faceImageJpeg.length < NfcPayloadBuilder.MIN_FACE_IMAGE_BYTES) {
+            return "Фото лица не считано или слишком маленькое";
+        }
         return null;
     }
 
@@ -511,6 +481,43 @@ public class MainActivity extends AppCompatActivity {
             return formatMrzDate(trimmed, "yyyy-MM-dd");
         }
         return null;
+    }
+
+    static String normalizeDocumentNumber(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        String trimmed = value.trim().replace(" ", "");
+        if (trimmed.isEmpty()) {
+            return null;
+        }
+        return trimmed.toUpperCase(Locale.US);
+    }
+
+    static Models.MRZKeys normalizeMrzKeys(Models.MRZKeys keys) {
+        if (keys == null) {
+            return null;
+        }
+        String normalizedDocumentNumber = normalizeDocumentNumber(keys.document_number);
+        String normalizedBirth = normalizeMrzDate(keys.date_of_birth);
+        String normalizedExpiry = normalizeMrzDate(keys.date_of_expiry);
+        if (isBlank(normalizedDocumentNumber) || normalizedBirth == null || normalizedExpiry == null) {
+            return null;
+        }
+        Models.MRZKeys normalized = new Models.MRZKeys();
+        normalized.document_number = normalizedDocumentNumber;
+        normalized.date_of_birth = normalizedBirth;
+        normalized.date_of_expiry = normalizedExpiry;
+        return normalized;
+    }
+
+    private String buildManualDebugPayload(Models.MRZKeys keys) {
+        JsonObject payload = new JsonObject();
+        payload.addProperty("source", "manual_input");
+        payload.addProperty("document_number", keys.document_number);
+        payload.addProperty("date_of_birth", keys.date_of_birth);
+        payload.addProperty("date_of_expiry", keys.date_of_expiry);
+        return payload.toString();
     }
 
     private static String formatMrzDate(String value, String pattern) {
@@ -580,8 +587,83 @@ public class MainActivity extends AppCompatActivity {
             return;
         }
         mrzKeys = keys;
+        lastNfcResponse = buildManualDebugPayload(keys);
+        updateDebugPanel();
         lastErrorMessage = null;
         setState(State.NFC_WAIT);
+    }
+
+    private void readNfcInBackground(android.nfc.Tag tag, Models.MRZKeys keys) {
+        Models.NfcResult result;
+        try {
+            result = NfcPassportReader.readPassport(tag, keys);
+        } catch (Exception e) {
+            runOnUiThread(() -> {
+                lastErrorMessage = "Ошибка чтения NFC: " + e.getMessage();
+                setState(State.ERROR);
+            });
+            return;
+        }
+        String validationError = validateNfcResult(result);
+        if (validationError != null) {
+            runOnUiThread(() -> {
+                lastErrorMessage = validationError;
+                setState(State.ERROR);
+            });
+            return;
+        }
+        StringBuilder payloadError = new StringBuilder();
+        JsonObject payload = tryBuildNfcPayload(result, payloadError);
+        if (payload == null) {
+            runOnUiThread(() -> {
+                lastErrorMessage = "Ошибка подготовки NFC: " + payloadError;
+                setState(State.ERROR);
+            });
+            return;
+        }
+        BackendApi.sendNfcRawAndParse(payload, new BackendApi.Callback<Models.NfcScanResponse>() {
+            @Override
+            public void onSuccess(Models.NfcScanResponse value) {
+                String faceUrl = ensureAbsoluteUrl(value.face_image_url);
+                if (faceUrl == null || faceUrl.trim().isEmpty()) {
+                    runOnUiThread(() -> {
+                        lastErrorMessage = "Не удалось получить URL фото";
+                        setState(State.ERROR);
+                    });
+                    return;
+                }
+                BackendApi.fetchFaceImage(faceUrl, new BackendApi.Callback<byte[]>() {
+                    @Override
+                    public void onSuccess(byte[] faceBytes) {
+                        runOnUiThread(() -> {
+                            if (imageFace != null && faceBytes.length > 0) {
+                                imageFace.setImageBitmap(
+                                        BitmapFactory.decodeByteArray(faceBytes, 0, faceBytes.length)
+                                );
+                            }
+                            lastErrorMessage = null;
+                            setState(State.RESULT);
+                        });
+                    }
+
+                    @Override
+                    public void onError(String message) {
+                        runOnUiThread(() -> {
+                            lastErrorMessage = message;
+                            setState(State.ERROR);
+                        });
+                    }
+                });
+            }
+
+            @Override
+            public void onError(String message) {
+                runOnUiThread(() -> {
+                    lastErrorMessage = message;
+                    setState(State.ERROR);
+                });
+            }
+        });
     }
 
     private void updateManualInputControls() {
