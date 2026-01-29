@@ -52,10 +52,11 @@ public final class NfcPassportReader {
             service.open();
             // Select the passport applet before BAC authentication
             // Without this, doBAC() fails with SW=0x6985 (CONDITIONS NOT SATISFIED)
-            boolean appletSelected = service.sendSelectApplet(false);
-            if (!appletSelected) {
+            try {
+                service.sendSelectApplet(false);
+            } catch (Exception e) {
                 throw new IllegalStateException(
-                    "Failed to select passport applet. Ensure the document is positioned correctly on the NFC reader.");
+                    "Failed to select passport applet. Ensure the document is positioned correctly on the NFC reader.", e);
             }
             BACKey bacKey = new BACKey(
                     mrz.document_number,
