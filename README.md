@@ -127,9 +127,7 @@ data: {"type":"nfc_scan_success","scan_id":"...","face_image_url":"/api/nfc/<sca
 ```
 
 ### Swagger/Web
-Дублирующие пути с `/api`, например: `/api/recognize`, `/api/nfc`, `/api/events`.
-Дополнительно доступны `/passport/recognize` и `/passport/nfc` (и их варианты с `/api`).
-Также дублируется `/errors` -> `/api/errors`.
+Все endpoints доступны также с префиксом `/api`, например: `/api/recognize`, `/api/nfc`, `/api/events`, `/api/errors`.
 
 ## Логирование входов/выходов LLM и NFC
 Backend сохраняет вход/выход LLM в SQLite: `backend/data/app.db`, таблица `llm_logs`.

@@ -8,7 +8,7 @@
 | R-02 | Мобилка фотографирует и отправляет фото на backend | implemented | mobile_android_java/app/.../MainActivity.java |
 | R-03 | Backend принимает фото и распознаёт загранпаспорт через мультимодальную LLM | implemented | backend/app/main.py, llm.py |
 | R-04 | LLM через Ollama, модель qwen3-vl:30b | implemented | backend/app/settings.py, llm.py |
-| R-05 | API: принять картинку, вернуть параметры заграна либо ошибку | implemented | POST /api/passport/recognize |
+| R-05 | API: принять картинку, вернуть параметры заграна либо ошибку | implemented | POST /api/recognize |
 | R-06 | Мобилка при 200 показывает данные и предлагает NFC | implemented | MainActivity.java |
 | R-07 | Мобилка NFC: извлекает параметры и фото, отправляет в backend, скачивает face_image_url | implemented | MainActivity.java + NfcPassportReader.java + BackendApi.java |
 | R-08 | Backend сохраняет NFC данные, отдаёт face_image_url, SSE содержит данные для web UI | implemented | backend/app/api.py + web UI + docs/contracts/nfc.md |
