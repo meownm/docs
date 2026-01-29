@@ -19,15 +19,9 @@ import android.widget.TextView;
 import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.camera.core.CameraSelector;
-import androidx.camera.core.Preview;
-import androidx.camera.lifecycle.ProcessCameraProvider;
-import androidx.camera.view.PreviewView;
 import androidx.core.content.FileProvider;
-import androidx.core.content.ContextCompat;
 
 import com.google.gson.JsonObject;
-import com.google.common.util.concurrent.ListenableFuture;
 
 import java.io.File;
 import java.io.IOException;
@@ -70,7 +64,6 @@ public class MainActivity extends AppCompatActivity {
     private TextView textDebugRecognize;
     private TextView textDebugNfc;
     private TextView textDebugFace;
-    private PreviewView cameraPreview;
     private State currentState = State.CAMERA;
     private Models.MRZKeys mrzKeys;
     private String lastErrorMessage;
@@ -79,8 +72,6 @@ public class MainActivity extends AppCompatActivity {
     private String lastFaceResponse;
     private String pendingPhotoPath;
     private Uri pendingPhotoUri;
-    private ListenableFuture<ProcessCameraProvider> cameraProviderFuture;
-    private ProcessCameraProvider cameraProvider;
     private ExecutorService nfcExecutor;
 
     @Override
@@ -104,8 +95,6 @@ public class MainActivity extends AppCompatActivity {
         textDebugRecognize = findViewById(R.id.textDebugRecognize);
         textDebugNfc = findViewById(R.id.textDebugNfc);
         textDebugFace = findViewById(R.id.textDebugFace);
-        cameraPreview = findViewById(R.id.cameraPreview);
-        cameraProviderFuture = ProcessCameraProvider.getInstance(this);
 
         btnTakePhoto.setOnClickListener(v -> {
             Log.d(TAG, "Take photo clicked");
@@ -290,7 +279,6 @@ public class MainActivity extends AppCompatActivity {
         textExpiryDate.setText(uiState.expiryDate);
         updateNfcDispatch(NfcDispatchTransition.from(previousState, newState));
         updateManualInputControls();
-        updateCameraPreview(previousState, newState);
         if (uiState.toastMessage != null) {
             Toast.makeText(this, uiState.toastMessage, Toast.LENGTH_LONG).show();
         }
@@ -317,68 +305,6 @@ public class MainActivity extends AppCompatActivity {
         if (textDebugFace != null) {
             textDebugFace.setText(lastFaceResponse == null ? "—" : lastFaceResponse);
         }
-    }
-
-    private void updateCameraPreview(State previousState, State newState) {
-        if (!shouldUpdateCameraPreview(previousState, newState)) {
-            return;
-        }
-        boolean isCameraState = shouldBindCamera(newState);
-        if (isCameraState) {
-            bindCameraPreview();
-        } else {
-            unbindCameraPreview();
-        }
-    }
-
-    static boolean shouldUpdateCameraPreview(State previousState, State newState) {
-        boolean wasCameraState = shouldBindCamera(previousState);
-        boolean isCameraState = shouldBindCamera(newState);
-        return wasCameraState != isCameraState;
-    }
-
-    private void bindCameraPreview() {
-        if (cameraPreview == null) {
-            return;
-        }
-        if (ContextCompat.checkSelfPermission(this, android.Manifest.permission.CAMERA)
-                != PackageManager.PERMISSION_GRANTED) {
-            Log.w(TAG, "Camera permission not granted; preview disabled");
-            return;
-        }
-        ListenableFuture<ProcessCameraProvider> future = cameraProviderFuture;
-        if (future == null) {
-            cameraProviderFuture = ProcessCameraProvider.getInstance(this);
-            future = cameraProviderFuture;
-        }
-        final ListenableFuture<ProcessCameraProvider> cameraFuture = future;
-        cameraFuture.addListener(() -> {
-            try {
-                cameraProvider = cameraFuture.get();
-                bindUseCases(cameraProvider);
-            } catch (Exception e) {
-                Log.e(TAG, "Failed to bind camera preview", e);
-            }
-        }, ContextCompat.getMainExecutor(this));
-    }
-
-    private void bindUseCases(ProcessCameraProvider provider) {
-        provider.unbindAll();
-        Preview preview = new Preview.Builder().build();
-        preview.setSurfaceProvider(cameraPreview.getSurfaceProvider());
-        CameraSelector selector =
-                new CameraSelector.Builder().requireLensFacing(CameraSelector.LENS_FACING_BACK).build();
-        provider.bindToLifecycle(this, selector, preview);
-    }
-
-    private void unbindCameraPreview() {
-        if (cameraProvider != null) {
-            cameraProvider.unbindAll();
-        }
-    }
-
-    static boolean shouldBindCamera(State state) {
-        return state == State.CAMERA;
     }
 
     static Models.MRZKeys buildManualMrzKeys(
