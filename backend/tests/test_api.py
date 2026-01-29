@@ -15,6 +15,13 @@ from app.events import event_bus
 
 JPEG_BYTES = b"\xff\xd8\xff" + (b"jpeg-bytes" * 15) + b"\xff\xd9"
 
+# Simulated DG2 structure with embedded JPEG (header + JPEG + trailer)
+DG2_WITH_JPEG = b"\x75\x82\x00\x50" + b"\x7f\x61" + JPEG_BYTES + b"\x00\x00"
+
+# Simulated DG2 structure with embedded JP2 codestream
+JP2_CODESTREAM_BYTES = b"\xff\x4f\xff\x51" + b"jp2-codestream-data"
+DG2_WITH_JP2_CODESTREAM = b"\x75\x82\x00\x50" + b"\x7f\x61" + JP2_CODESTREAM_BYTES
+
 def fetch_rows(db_path: str, query: str, params: tuple = ()) -> list[sqlite3.Row]:
     with sqlite3.connect(db_path) as conn:
         conn.row_factory = sqlite3.Row
@@ -342,3 +349,106 @@ async def test_sse_event_missing_type_defaults_message(patched_settings):
     assert lines[0] == "event: message"
     payload = json.loads(lines[1].removeprefix("data: ").strip())
     assert payload == event_payload
+
+
+def test_store_nfc_raw_format_with_mrz_keys_and_dg2(client):
+    """Test raw NFC format with mrz_keys and dg2_raw_b64 fields."""
+    response = client.post(
+        "/nfc",
+        json={
+            "mrz_keys": {
+                "document_number": "764507757",
+                "date_of_birth": "810809",
+                "date_of_expiry": "310503",
+            },
+            "dg2_raw_b64": base64.b64encode(DG2_WITH_JPEG).decode("ascii"),
+            "dg1_raw_b64": base64.b64encode(b"dg1-data").decode("ascii"),
+            "format": "raw",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert "scan_id" in payload
+    assert payload["passport"]["mrz"]["document_number"] == "764507757"
+    assert payload["passport"]["mrz"]["date_of_birth"] == "810809"
+    assert payload["passport"]["mrz"]["date_of_expiry"] == "310503"
+
+
+def test_store_nfc_raw_format_extracts_face_from_dg2(client):
+    """Test that face image is correctly extracted from DG2 and can be fetched."""
+    response = client.post(
+        "/nfc",
+        json={
+            "mrz_keys": {
+                "document_number": "123456789",
+                "date_of_birth": "900101",
+                "date_of_expiry": "300101",
+            },
+            "dg2_raw_b64": base64.b64encode(DG2_WITH_JPEG).decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 200
+    scan_id = response.json()["scan_id"]
+
+    face_response = client.get(f"/nfc/{scan_id}/face.jpg")
+    assert face_response.status_code == 200
+    assert face_response.content == JPEG_BYTES
+
+
+def test_store_nfc_raw_format_invalid_dg2_base64(client):
+    """Test error handling for invalid base64 in dg2_raw_b64."""
+    response = client.post(
+        "/nfc",
+        json={
+            "mrz_keys": {
+                "document_number": "123456789",
+                "date_of_birth": "900101",
+                "date_of_expiry": "300101",
+            },
+            "dg2_raw_b64": "not-valid-base64!!!",
+        },
+    )
+
+    assert response.status_code == 422
+    assert "Invalid dg2_raw_b64" in response.json()["detail"]
+
+
+def test_store_nfc_raw_format_dg2_without_face(client):
+    """Test error handling when DG2 doesn't contain extractable face image."""
+    response = client.post(
+        "/nfc",
+        json={
+            "mrz_keys": {
+                "document_number": "123456789",
+                "date_of_birth": "900101",
+                "date_of_expiry": "300101",
+            },
+            "dg2_raw_b64": base64.b64encode(b"no-image-here").decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json() == {
+        "detail": "Invalid dg2_raw_b64: could not extract face image from DG2"
+    }
+
+
+def test_store_nfc_prefers_face_image_b64_over_dg2(client):
+    """Test that face_image_b64 is used when both fields are provided."""
+    different_jpeg = b"\xff\xd8\xff" + (b"different" * 15) + b"\xff\xd9"
+    response = client.post(
+        "/nfc",
+        json={
+            "passport": {"document_number": "123", "date_of_birth": "900101", "date_of_expiry": "300101"},
+            "face_image_b64": base64.b64encode(different_jpeg).decode("ascii"),
+            "dg2_raw_b64": base64.b64encode(DG2_WITH_JPEG).decode("ascii"),
+        },
+    )
+
+    assert response.status_code == 200
+    scan_id = response.json()["scan_id"]
+
+    face_response = client.get(f"/nfc/{scan_id}/face.jpg")
+    assert face_response.content == different_jpeg
