@@ -61,13 +61,13 @@ def test_api_request_log_success(client, monkeypatch):
     monkeypatch.setattr(api_module, "ollama_chat_with_image", fake_ollama)
 
     response = client.post(
-        "/api/passport/recognize",
+        "/api/recognize",
         files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
     )
 
     assert response.status_code == 200
 
-    row = _fetch_latest_log(settings.db_path, "/api/passport/recognize")
+    row = _fetch_latest_log(settings.db_path, "/api/recognize")
     assert row is not None
     assert row["method"] == "POST"
     assert row["status_code"] == 200
@@ -125,14 +125,14 @@ def test_api_request_log_form_body_on_404(client):
 
 def test_api_request_log_422_with_invalid_json(client):
     response = client.post(
-        "/api/passport/nfc",
+        "/api/nfc",
         data="not-json",
         headers={"content-type": "application/json"},
     )
 
     assert response.status_code == 422
 
-    row = _fetch_latest_log(settings.db_path, "/api/passport/nfc")
+    row = _fetch_latest_log(settings.db_path, "/api/nfc")
     assert row is not None
     assert row["request_body"] == "not-json"
     response_payload = json.loads(row["response_body"])
@@ -149,11 +149,11 @@ def test_api_request_log_json_body_and_response(client):
         "face_image_b64": base64.b64encode(JPEG_BYTES).decode("utf-8"),
     }
 
-    response = client.post("/api/passport/nfc", json=payload)
+    response = client.post("/api/nfc", json=payload)
 
     assert response.status_code == 200
 
-    row = _fetch_latest_log(settings.db_path, "/api/passport/nfc")
+    row = _fetch_latest_log(settings.db_path, "/api/nfc")
     assert row is not None
     request_payload = json.loads(row["request_body"])
     assert request_payload["passport"]["document_number"] == "123456789"
@@ -172,11 +172,11 @@ def test_api_request_log_large_body_placeholder(client):
         "face_image_b64": base64.b64encode(large_bytes).decode("utf-8"),
     }
 
-    response = client.post("/api/passport/nfc", json=payload)
+    response = client.post("/api/nfc", json=payload)
 
     assert response.status_code == 200
 
-    row = _fetch_latest_log(settings.db_path, "/api/passport/nfc")
+    row = _fetch_latest_log(settings.db_path, "/api/nfc")
     assert row is not None
     _parse_placeholder(row["request_body"])
 
@@ -191,7 +191,7 @@ def test_api_request_log_binary_response_placeholder(client):
         "face_image_b64": base64.b64encode(JPEG_BYTES).decode("utf-8"),
     }
 
-    response = client.post("/api/passport/nfc", json=payload)
+    response = client.post("/api/nfc", json=payload)
     assert response.status_code == 200
     scan_id = response.json()["scan_id"]
 

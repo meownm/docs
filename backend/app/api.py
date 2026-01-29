@@ -188,14 +188,7 @@ async def _recognize_impl(image: UploadFile):
     return mrz
 
 
-# --- Канон мобилки ---
 @router.post("/recognize")
-async def recognize_mobile(image: UploadFile = File(...)):
-    return await _recognize_impl(image)
-
-
-# --- Swagger / Web ---
-@router.post("/passport/recognize")
 async def recognize_passport(image: UploadFile = File(...)):
     return await _recognize_impl(image)
 
@@ -285,14 +278,7 @@ async def _nfc_impl(payload: dict):
     return normalized_response
 
 
-# --- Канон мобилки ---
 @router.post("/nfc")
-async def passport_nfc_mobile(payload: dict):
-    return await _nfc_impl(payload)
-
-
-# --- Swagger / Web ---
-@router.post("/passport/nfc")
 async def passport_nfc(payload: dict):
     return await _nfc_impl(payload)
 
