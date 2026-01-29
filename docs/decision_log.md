@@ -8,3 +8,4 @@
 | 2026-01-26 | Хранение фото из NFC на диске + путь в SQLite | Проще, чем BLOB в SQLite для демо | Данные лежат в `backend/data/files` |
 | 2025-02-14 | LLMService остаётся stateless: request_id передаётся в методы, не хранится в экземпляре | Исключить утечки состояния между pipeline-запросами | Любое обращение к `LLMService.request_id` считается регрессией |
 | 2025-02-14 | request_id обязателен в structured logs (placeholder `n/a` при отсутствии) | Единый контракт корреляции для control/data plane | Логи всегда содержат ключ request_id |
+| 2026-01-29 | NFC BAC: вызов sendSelectApplet(false) перед doBAC() | Без выбора апплета паспорта чип возвращает SW=0x6985 (CONDITIONS NOT SATISFIED) | BAC аутентификация успешна на всех чипах eMRTD |

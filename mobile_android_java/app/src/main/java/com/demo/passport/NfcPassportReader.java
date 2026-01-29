@@ -50,6 +50,9 @@ public final class NfcPassportReader {
                     false
             );
             service.open();
+            // Select the passport applet before BAC authentication
+            // Without this, doBAC() fails with SW=0x6985 (CONDITIONS NOT SATISFIED)
+            service.sendSelectApplet(false);
             BACKey bacKey = new BACKey(
                     mrz.document_number,
                     mrz.date_of_birth,
