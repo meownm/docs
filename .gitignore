@@ -18,3 +18,11 @@ mobile_android_java/app/build/intermediates/incremental/debugAndroidTest/mergeDe
 *.lock
 mobile_android_java/.gradle/buildOutputCleanup/buildOutputCleanup.lock
 mobile_android_java/.gradle/file-system.probe
+mobile_android_java/app/build/intermediates/incremental/debugAndroidTest/mergeDebugAndroidTestResources/merger.xml
+mobile_android_java/app/build/intermediates/incremental/debug/packageDebugResources/merger.xml
+mobile_android_java/.gradle/buildOutputCleanup/buildOutputCleanup.lock
+mobile_android_java/.gradle/buildOutputCleanup/outputFiles.bin
+mobile_android_java/app/build/intermediates/incremental/debug/packageDebugResources/compile-file-map.properties
+/mobile_android_java/app/build
+/mobile_android_java/.gradle
+/mobile_android_java/app/build
