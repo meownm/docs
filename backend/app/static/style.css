@@ -58,3 +58,137 @@ h1 {
   color: #444;
   font-size: 13px;
 }
+
+/* Webcam styles */
+.webcam-container {
+  margin-bottom: 16px;
+}
+
+.webcam-preview {
+  width: 100%;
+  max-width: 640px;
+  aspect-ratio: 4/3;
+  border: 1px dashed #c7cbd6;
+  border-radius: 12px;
+  background: #1a1a2e;
+  overflow: hidden;
+  position: relative;
+}
+
+.webcam-preview video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: none;
+}
+
+.webcam-placeholder {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #8a8fa3;
+  font-size: 14px;
+  text-align: center;
+  padding: 20px;
+}
+
+.webcam-controls {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+
+.btn {
+  padding: 10px 20px;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s, opacity 0.2s;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background: #3b5bdb;
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #2f4dc4;
+}
+
+.btn-secondary {
+  background: #e9ecef;
+  color: #333;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background: #dde1e6;
+}
+
+.webcam-status {
+  font-size: 13px;
+  color: #666;
+  min-height: 20px;
+}
+
+.webcam-status.success {
+  color: #2b8a3e;
+}
+
+.webcam-status.error {
+  color: #c92a2a;
+}
+
+.recognition-result {
+  margin-top: 16px;
+  padding: 16px;
+  background: #f8f9fa;
+  border-radius: 10px;
+  border: 1px solid #e9ecef;
+}
+
+.recognition-result h3 {
+  margin: 0 0 12px 0;
+  font-size: 15px;
+  color: #333;
+}
+
+.result-success {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.result-row {
+  display: flex;
+  gap: 8px;
+  font-size: 14px;
+}
+
+.result-label {
+  color: #666;
+  min-width: 140px;
+}
+
+.result-value {
+  color: #111;
+  font-weight: 500;
+  font-family: monospace;
+}
+
+.result-error {
+  color: #c92a2a;
+  font-size: 14px;
+}
