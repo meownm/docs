@@ -552,16 +552,29 @@ public class MainActivity extends AppCompatActivity {
 
     private void readNfcInBackground(android.nfc.Tag tag, Models.MRZKeys keys) {
         // Server-side decoding: read raw DG1/DG2 bytes without parsing
-        Models.NfcRawResult result;
-        try {
-            result = NfcPassportReader.readPassportRaw(tag, keys);
-        } catch (Exception e) {
+        NfcReadResult nfcResult = NfcPassportReader.readPassportRaw(tag, keys);
+
+        // Handle non-success statuses - NO backend calls for client-side errors
+        if (!nfcResult.isSuccess()) {
             runOnUiThread(() -> {
-                lastErrorMessage = "Ошибка чтения NFC: " + e.getMessage();
+                // Use canonical user message from status
+                lastErrorMessage = nfcResult.getUserMessage();
+                Log.w(TAG, "NFC read failed: " + nfcResult);
                 setState(State.ERROR);
             });
             return;
         }
+
+        // Only proceed with backend call if status == SUCCESS
+        if (!nfcResult.allowsBackendCall()) {
+            runOnUiThread(() -> {
+                lastErrorMessage = nfcResult.getUserMessage();
+                setState(State.ERROR);
+            });
+            return;
+        }
+
+        Models.NfcRawResult result = nfcResult.data;
         String validationError = validateNfcRawResult(result);
         if (validationError != null) {
             runOnUiThread(() -> {
