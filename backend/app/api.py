@@ -122,6 +122,7 @@ def extract_mrz(llm_text: str) -> dict | None:
 JPEG_SOI = b"\xff\xd8"
 JPEG_EOI = b"\xff\xd9"
 JP2_MAGIC = b"\x00\x00\x00\x0cjP  \r\n\x87\n"
+JP2_CODESTREAM_MAGIC = b"\xff\x4f\xff\x51"
 JPEG_TAIL_BYTES = 64
 
 
@@ -134,7 +135,39 @@ def _detect_image_format(image_bytes: bytes) -> str:
                 return "jpeg"
     if image_bytes.startswith(JP2_MAGIC):
         return "jp2"
+    if image_bytes.startswith(JP2_CODESTREAM_MAGIC):
+        return "jp2"
     return "unknown"
+
+
+def _extract_face_from_dg2(dg2_bytes: bytes) -> bytes | None:
+    """
+    Extract facial image from ICAO 9303 DG2 biometric data.
+
+    DG2 contains biometric facial image in JPEG or JPEG2000 format.
+    This function searches for image magic bytes within the DG2 structure.
+    """
+    if not dg2_bytes:
+        return None
+
+    # Search for JPEG image
+    jpeg_start = dg2_bytes.find(JPEG_SOI)
+    if jpeg_start != -1:
+        jpeg_end = dg2_bytes.rfind(JPEG_EOI)
+        if jpeg_end != -1 and jpeg_end > jpeg_start:
+            return dg2_bytes[jpeg_start:jpeg_end + len(JPEG_EOI)]
+
+    # Search for JP2 file format
+    jp2_start = dg2_bytes.find(JP2_MAGIC)
+    if jp2_start != -1:
+        return dg2_bytes[jp2_start:]
+
+    # Search for JP2 codestream (raw JPEG2000 without file wrapper)
+    jp2cs_start = dg2_bytes.find(JP2_CODESTREAM_MAGIC)
+    if jp2cs_start != -1:
+        return dg2_bytes[jp2cs_start:]
+
+    return None
 
 
 def _convert_jp2_to_jpeg(image_bytes: bytes) -> bytes | None:
@@ -200,20 +233,39 @@ async def recognize_passport(image: UploadFile = File(...)):
 async def _nfc_impl(payload: dict):
     scan_id = str(uuid.uuid4())
 
+    # Extract passport/MRZ data - support multiple field names for compatibility
     passport = payload.get("passport")
     if passport is None and isinstance(payload.get("mrz"), dict):
         passport = {"mrz": payload.get("mrz")}
+    if passport is None and isinstance(payload.get("mrz_keys"), dict):
+        passport = {"mrz": payload.get("mrz_keys")}
     if not isinstance(passport, dict) or not passport:
         raise HTTPException(status_code=422, detail="Invalid passport")
 
+    # Extract face image - support raw DG2 format from NFC chip
     face_b64 = payload.get("face_image_b64")
-    if not isinstance(face_b64, str) or not face_b64:
-        raise HTTPException(status_code=422, detail="Invalid face_image_b64")
+    dg2_b64 = payload.get("dg2_raw_b64")
 
-    try:
-        face_bytes = base64.b64decode(face_b64, validate=True)
-    except (binascii.Error, ValueError) as e:
-        raise HTTPException(status_code=422, detail=f"Invalid face_image_b64: {e}")
+    face_bytes = None
+
+    if isinstance(face_b64, str) and face_b64:
+        try:
+            face_bytes = base64.b64decode(face_b64, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise HTTPException(status_code=422, detail=f"Invalid face_image_b64: {e}")
+    elif isinstance(dg2_b64, str) and dg2_b64:
+        try:
+            dg2_bytes = base64.b64decode(dg2_b64, validate=True)
+        except (binascii.Error, ValueError) as e:
+            raise HTTPException(status_code=422, detail=f"Invalid dg2_raw_b64: {e}")
+        face_bytes = _extract_face_from_dg2(dg2_bytes)
+        if face_bytes is None:
+            raise HTTPException(
+                status_code=422,
+                detail="Invalid dg2_raw_b64: could not extract face image from DG2",
+            )
+    else:
+        raise HTTPException(status_code=422, detail="Invalid face_image_b64")
 
     jpeg_bytes = _ensure_jpeg_bytes(face_bytes)
     if jpeg_bytes is None:
