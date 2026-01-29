@@ -34,13 +34,16 @@ public enum NfcReadStatus {
     BAC_FAILED,
 
     /**
-     * Document requires PACE (Password Authenticated Connection Establishment)
-     * which is not supported by this application version.
+     * PACE authentication failed due to protocol or crypto error.
+     * This indicates the document supports PACE but authentication could not complete.
      *
-     * This status is set when BAC fails with SW=0x6985 (CONDITIONS NOT SATISFIED)
-     * or when the error indicates PACE is required instead of BAC.
+     * Possible causes:
+     * - Incorrect MRZ data
+     * - Crypto algorithm mismatch
+     * - Protocol error during key agreement
+     * - Card communication error during PACE
      */
-    PACE_REQUIRED,
+    PACE_FAILED,
 
     /**
      * Error reading Data Group files (DG1/DG2) from the chip.
@@ -88,8 +91,8 @@ public enum NfcReadStatus {
                 return "Не удалось установить связь с чипом документа. Убедитесь, что документ правильно расположен на NFC-датчике.";
             case BAC_FAILED:
                 return "Ошибка аутентификации с чипом. Проверьте корректность данных MRZ (номер документа, дата рождения, срок действия).";
-            case PACE_REQUIRED:
-                return "Документ использует современную защиту (PACE). Чтение не поддерживается текущей версией приложения.";
+            case PACE_FAILED:
+                return "Ошибка аутентификации PACE. Проверьте корректность данных MRZ и попробуйте снова.";
             case DG_READ_ERROR:
                 return "Ошибка чтения данных с чипа. Попробуйте повторить сканирование, удерживая документ неподвижно.";
             case PARTIAL_READ:

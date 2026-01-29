@@ -44,25 +44,60 @@ public final class NfcReadResult {
     @Nullable
     public final String technicalMessage;
 
+    /**
+     * Authentication method used (PACE or BAC).
+     * Only set on successful reads.
+     */
+    @Nullable
+    public final String authMethod;
+
+    /**
+     * PACE OID used for authentication (if PACE was used).
+     * Example: "0.4.0.127.0.7.2.2.4.2.2" for ECDH-GM-AES-CBC-CMAC-128
+     */
+    @Nullable
+    public final String paceOid;
+
     private NfcReadResult(
             @NonNull NfcReadStatus status,
             @Nullable Models.NfcRawResult data,
             @Nullable String errorStage,
             @Nullable String swCode,
-            @Nullable String technicalMessage
+            @Nullable String technicalMessage,
+            @Nullable String authMethod,
+            @Nullable String paceOid
     ) {
         this.status = status;
         this.data = data;
         this.errorStage = errorStage;
         this.swCode = swCode;
         this.technicalMessage = technicalMessage;
+        this.authMethod = authMethod;
+        this.paceOid = paceOid;
     }
 
     /**
-     * Creates a successful result with data.
+     * Creates a successful result with data and authentication method info.
+     *
+     * @param data The raw NFC data
+     * @param authMethod The authentication method used (PACE or BAC)
+     * @param paceOid The PACE OID if PACE was used, null for BAC
      */
+    public static NfcReadResult success(
+            @NonNull Models.NfcRawResult data,
+            @NonNull String authMethod,
+            @Nullable String paceOid
+    ) {
+        return new NfcReadResult(NfcReadStatus.SUCCESS, data, null, null, null, authMethod, paceOid);
+    }
+
+    /**
+     * Creates a successful result with data (legacy method for BAC).
+     * @deprecated Use {@link #success(Models.NfcRawResult, String, String)} instead
+     */
+    @Deprecated
     public static NfcReadResult success(@NonNull Models.NfcRawResult data) {
-        return new NfcReadResult(NfcReadStatus.SUCCESS, data, null, null, null);
+        return new NfcReadResult(NfcReadStatus.SUCCESS, data, null, null, null, "BAC", null);
     }
 
     /**
@@ -77,7 +112,7 @@ public final class NfcReadResult {
         if (status == NfcReadStatus.SUCCESS) {
             throw new IllegalArgumentException("Cannot create error result with SUCCESS status");
         }
-        return new NfcReadResult(status, null, errorStage, swCode, technicalMessage);
+        return new NfcReadResult(status, null, errorStage, swCode, technicalMessage, null, null);
     }
 
     /**
@@ -92,6 +127,22 @@ public final class NfcReadResult {
      */
     public static NfcReadResult error(@NonNull NfcReadStatus status) {
         return error(status, null, null, null);
+    }
+
+    /**
+     * Creates an error result with PACE-specific diagnostic information.
+     */
+    public static NfcReadResult paceError(
+            @NonNull NfcReadStatus status,
+            @Nullable String errorStage,
+            @Nullable String swCode,
+            @Nullable String technicalMessage,
+            @Nullable String paceOid
+    ) {
+        if (status == NfcReadStatus.SUCCESS) {
+            throw new IllegalArgumentException("Cannot create error result with SUCCESS status");
+        }
+        return new NfcReadResult(status, null, errorStage, swCode, technicalMessage, "PACE", paceOid);
     }
 
     /**
@@ -120,6 +171,12 @@ public final class NfcReadResult {
     public String toString() {
         StringBuilder sb = new StringBuilder();
         sb.append("NfcReadResult{status=").append(status);
+        if (authMethod != null) {
+            sb.append(", authMethod=").append(authMethod);
+        }
+        if (paceOid != null) {
+            sb.append(", paceOid=").append(paceOid);
+        }
         if (errorStage != null) {
             sb.append(", stage=").append(errorStage);
         }

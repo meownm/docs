@@ -19,7 +19,7 @@ public class NfcReadStatusTest {
         assertFalse(NfcReadStatus.NFC_NOT_ISODEP.allowsBackendCall());
         assertFalse(NfcReadStatus.APPLET_SELECTION_FAILED.allowsBackendCall());
         assertFalse(NfcReadStatus.BAC_FAILED.allowsBackendCall());
-        assertFalse(NfcReadStatus.PACE_REQUIRED.allowsBackendCall());
+        assertFalse(NfcReadStatus.PACE_FAILED.allowsBackendCall());
         assertFalse(NfcReadStatus.DG_READ_ERROR.allowsBackendCall());
         assertFalse(NfcReadStatus.PARTIAL_READ.allowsBackendCall());
         assertFalse(NfcReadStatus.UNKNOWN_ERROR.allowsBackendCall());
@@ -36,20 +36,18 @@ public class NfcReadStatusTest {
         assertTrue(NfcReadStatus.NFC_NOT_ISODEP.isClientError());
         assertTrue(NfcReadStatus.APPLET_SELECTION_FAILED.isClientError());
         assertTrue(NfcReadStatus.BAC_FAILED.isClientError());
-        assertTrue(NfcReadStatus.PACE_REQUIRED.isClientError());
+        assertTrue(NfcReadStatus.PACE_FAILED.isClientError());
         assertTrue(NfcReadStatus.DG_READ_ERROR.isClientError());
         assertTrue(NfcReadStatus.PARTIAL_READ.isClientError());
         assertTrue(NfcReadStatus.UNKNOWN_ERROR.isClientError());
     }
 
     @Test
-    public void paceRequired_hasCorrectUserMessage() {
-        String message = NfcReadStatus.PACE_REQUIRED.getUserMessage();
+    public void paceFailed_hasCorrectUserMessage() {
+        String message = NfcReadStatus.PACE_FAILED.getUserMessage();
         assertTrue(message.contains("PACE"));
-        assertTrue(message.contains("современн"));
-        // Verify NO mention of "unsupported chip"
-        assertFalse(message.toLowerCase().contains("неподдерживаем"));
-        assertFalse(message.toLowerCase().contains("unsupported"));
+        // Should mention authentication error
+        assertTrue(message.contains("аутентификац") || message.contains("Ошибка"));
     }
 
     @Test

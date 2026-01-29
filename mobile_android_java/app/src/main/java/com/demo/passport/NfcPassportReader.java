@@ -4,27 +4,43 @@ import android.nfc.Tag;
 import android.nfc.tech.IsoDep;
 
 import net.sf.scuba.smartcards.CardService;
+import net.sf.scuba.smartcards.CardServiceException;
 
 import org.jmrtd.BACKey;
+import org.jmrtd.PACEKeySpec;
 import org.jmrtd.PassportService;
+import org.jmrtd.lds.CardAccessFile;
+import org.jmrtd.lds.PACEInfo;
+import org.jmrtd.lds.SecurityInfo;
 
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.util.Collection;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * NFC eMRTD reader with structured error handling.
- * Returns NfcReadResult instead of throwing exceptions.
+ * NFC eMRTD reader with PACE and BAC authentication support.
+ *
+ * Authentication strategy:
+ * 1. Read EF.CardAccess to detect PACE support
+ * 2. If PACE is supported - attempt PACE authentication first
+ * 3. If PACE is not supported or fails with "not supported" - fallback to BAC
+ * 4. If PACE fails with protocol/crypto error - return PACE_FAILED
  *
  * Key improvements:
+ * - PACE as primary authentication method
+ * - BAC as fallback for older documents
  * - Canonical classification of all error scenarios
- * - Detection of PACE requirement (SW=0x6985)
- * - Structured logging without MRZ exposure
+ * - Structured logging with auth method tracking
  * - Backend calls only allowed on SUCCESS
  */
 public final class NfcPassportReader {
     static final int NFC_TIMEOUT_MS = 45000;
+
+    /** Authentication method constants */
+    public static final String AUTH_METHOD_PACE = "PACE";
+    public static final String AUTH_METHOD_BAC = "BAC";
 
     /**
      * Pattern to extract SW code from error messages.
@@ -36,25 +52,53 @@ public final class NfcPassportReader {
     );
 
     /**
-     * Pattern to detect PACE requirement in error messages.
+     * SW codes indicating PACE is not supported (fallback to BAC allowed).
      */
-    private static final Pattern PACE_INDICATOR_PATTERN = Pattern.compile(
-            "CONDITIONS\\s+NOT\\s+SATISFIED|" +
-            "expected\\s+length:\\s*40\\s*\\+\\s*2,\\s*actual\\s+length:\\s*2",
-            Pattern.CASE_INSENSITIVE
-    );
+    private static final String SW_FILE_NOT_FOUND = "6A82";
+    private static final String SW_FUNCTION_NOT_SUPPORTED = "6A81";
+    private static final String SW_WRONG_P1P2 = "6A86";
+    private static final String SW_INS_NOT_SUPPORTED = "6D00";
 
     /**
-     * SW code indicating CONDITIONS NOT SATISFIED (PACE required).
+     * SW code indicating CONDITIONS NOT SATISFIED (PACE protocol error).
      */
-    private static final String SW_PACE_REQUIRED = "6985";
+    private static final String SW_CONDITIONS_NOT_SATISFIED = "6985";
+
+    /**
+     * Result of authentication attempt.
+     */
+    private static final class AuthResult {
+        final boolean success;
+        final String method;
+        final String paceOid;
+        final NfcReadResult errorResult;
+
+        private AuthResult(boolean success, String method, String paceOid, NfcReadResult errorResult) {
+            this.success = success;
+            this.method = method;
+            this.paceOid = paceOid;
+            this.errorResult = errorResult;
+        }
+
+        static AuthResult paceSuccess(String paceOid) {
+            return new AuthResult(true, AUTH_METHOD_PACE, paceOid, null);
+        }
+
+        static AuthResult bacSuccess() {
+            return new AuthResult(true, AUTH_METHOD_BAC, null, null);
+        }
+
+        static AuthResult failure(NfcReadResult errorResult) {
+            return new AuthResult(false, null, null, errorResult);
+        }
+    }
 
     /**
      * Reads raw DG1 and DG2 bytes from the passport chip.
-     * Returns a structured result with status and optional data.
+     * Uses PACE as primary authentication, BAC as fallback.
      *
      * @param tag NFC tag from the chip
-     * @param mrz MRZ keys for BAC authentication
+     * @param mrz MRZ keys for authentication
      * @return NfcReadResult with status and data (if successful)
      */
     public static NfcReadResult readPassportRaw(Tag tag, Models.MRZKeys mrz) {
@@ -122,18 +166,15 @@ public final class NfcPassportReader {
                 );
             }
 
-            // Perform BAC authentication
-            NfcLogger.logStage("bac_authentication");
-            BACKey bacKey = new BACKey(
-                    mrz.document_number,
-                    mrz.date_of_birth,
-                    mrz.date_of_expiry
-            );
-            try {
-                service.doBAC(bacKey);
-            } catch (Exception e) {
-                return handleBacError(e, mrz);
+            // Perform authentication (PACE first, then BAC fallback)
+            NfcLogger.logStage("authentication");
+            AuthResult authResult = performAuthentication(service, mrz);
+
+            if (!authResult.success) {
+                return authResult.errorResult;
             }
+
+            NfcLogger.logAuthSuccess(authResult.method, authResult.paceOid);
 
             // Read DG1 (MRZ data)
             NfcLogger.logStage("dg1_read");
@@ -196,7 +237,7 @@ public final class NfcPassportReader {
             data.dg2Raw = dg2Raw;
             data.mrzKeys = mrz;
 
-            NfcReadResult result = NfcReadResult.success(data);
+            NfcReadResult result = NfcReadResult.success(data, authResult.method, authResult.paceOid);
             NfcLogger.logResult(result);
             return result;
 
@@ -216,61 +257,198 @@ public final class NfcPassportReader {
     }
 
     /**
-     * Handles BAC authentication errors with proper PACE detection.
+     * Performs authentication using PACE (preferred) or BAC (fallback).
      *
-     * CRITICAL: SW=0x6985 (CONDITIONS NOT SATISFIED) indicates PACE is required.
-     * This must be classified as PACE_REQUIRED, NOT as BAC_FAILED or UNKNOWN_ERROR.
+     * Strategy:
+     * 1. Try to read EF.CardAccess to detect PACE support
+     * 2. If PACE info found - attempt PACE authentication
+     * 3. If PACE succeeds - return success
+     * 4. If PACE is not supported (file not found, etc.) - fallback to BAC
+     * 5. If PACE fails with protocol error - return PACE_FAILED (no fallback)
      */
-    private static NfcReadResult handleBacError(Exception e, Models.MRZKeys mrz) {
-        String swCode = extractSwCode(e);
-        String errorMessage = e.getMessage();
+    private static AuthResult performAuthentication(PassportService service, Models.MRZKeys mrz) {
+        // Try to read EF.CardAccess for PACE info
+        PACEInfo paceInfo = null;
+        String paceOid = null;
 
-        // Check for PACE requirement indicators
-        boolean isPaceRequired = isPaceRequiredError(swCode, errorMessage);
-
-        if (isPaceRequired) {
-            NfcLogger.logError(NfcReadStatus.PACE_REQUIRED, "bac_authentication", swCode, e);
-            return NfcReadResult.error(
-                    NfcReadStatus.PACE_REQUIRED,
-                    "bac_authentication",
-                    swCode,
-                    "Document requires PACE authentication (SW=" + (swCode != null ? swCode : "unknown") + ")"
+        NfcLogger.logStage("card_access_read");
+        try {
+            CardAccessFile cardAccessFile = new CardAccessFile(
+                    service.getInputStream(PassportService.EF_CARD_ACCESS)
             );
+            Collection<SecurityInfo> securityInfos = cardAccessFile.getSecurityInfos();
+
+            // Find first PACE info
+            for (SecurityInfo info : securityInfos) {
+                if (info instanceof PACEInfo) {
+                    paceInfo = (PACEInfo) info;
+                    paceOid = paceInfo.getObjectIdentifier();
+                    break;
+                }
+            }
+
+            int paceInfoCount = 0;
+            for (SecurityInfo info : securityInfos) {
+                if (info instanceof PACEInfo) {
+                    paceInfoCount++;
+                }
+            }
+            NfcLogger.logCardAccess(paceInfoCount, paceOid);
+
+        } catch (Exception e) {
+            // EF.CardAccess not found or not readable - PACE not supported
+            // This is normal for older documents, fallback to BAC
+            String swCode = extractSwCode(e);
+            NfcLogger.logAuthAttempt(AUTH_METHOD_PACE, null, "not_supported");
+
+            // Only fallback to BAC if it's a "file not found" type error
+            if (isPaceNotSupportedError(swCode, e.getMessage())) {
+                return performBacAuthentication(service, mrz);
+            }
+
+            // For other errors during CardAccess read, still try BAC
+            return performBacAuthentication(service, mrz);
         }
 
-        // Regular BAC failure (wrong MRZ data, etc.)
-        // Include masked document number for debugging (first 3 chars only)
-        String docNumMasked = mrz.document_number != null && mrz.document_number.length() > 3
-                ? mrz.document_number.substring(0, 3) + "***"
-                : "***";
+        // If PACE info found, attempt PACE authentication
+        if (paceInfo != null) {
+            NfcLogger.logStage("pace_authentication");
+            NfcLogger.logAuthAttempt(AUTH_METHOD_PACE, paceOid, "attempting");
 
-        NfcLogger.logError(NfcReadStatus.BAC_FAILED, "bac_authentication", swCode, e);
-        return NfcReadResult.error(
-                NfcReadStatus.BAC_FAILED,
-                "bac_authentication",
-                swCode,
-                "BAC authentication failed [doc=" + docNumMasked + "]: " + errorMessage
-        );
+            try {
+                // Create PACE key from MRZ data
+                PACEKeySpec paceKey = PACEKeySpec.createMRZKey(
+                        mrz.document_number,
+                        mrz.date_of_birth,
+                        mrz.date_of_expiry
+                );
+
+                // Perform PACE authentication
+                service.doPACE(
+                        paceKey,
+                        paceInfo.getObjectIdentifier(),
+                        PACEInfo.toParameterSpec(paceInfo.getParameterId()),
+                        paceInfo.getParameterId()
+                );
+
+                NfcLogger.logAuthAttempt(AUTH_METHOD_PACE, paceOid, "success");
+                return AuthResult.paceSuccess(paceOid);
+
+            } catch (CardServiceException e) {
+                String swCode = extractSwCode(e);
+                String errorMessage = e.getMessage();
+
+                // Check if this is a "PACE not supported" error (fallback to BAC)
+                if (isPaceNotSupportedError(swCode, errorMessage)) {
+                    NfcLogger.logAuthAttempt(AUTH_METHOD_PACE, paceOid, "fallback_to_bac");
+                    return performBacAuthentication(service, mrz);
+                }
+
+                // PACE failed with protocol/crypto error - no fallback
+                NfcLogger.logAuthAttempt(AUTH_METHOD_PACE, paceOid, "failed");
+                NfcLogger.logError(NfcReadStatus.PACE_FAILED, "pace_authentication", swCode, e);
+
+                return AuthResult.failure(NfcReadResult.paceError(
+                        NfcReadStatus.PACE_FAILED,
+                        "pace_authentication",
+                        swCode,
+                        "PACE authentication failed: " + errorMessage,
+                        paceOid
+                ));
+
+            } catch (Exception e) {
+                String swCode = extractSwCode(e);
+
+                // For generic exceptions, check if it's a "not supported" type
+                if (isPaceNotSupportedError(swCode, e.getMessage())) {
+                    NfcLogger.logAuthAttempt(AUTH_METHOD_PACE, paceOid, "fallback_to_bac");
+                    return performBacAuthentication(service, mrz);
+                }
+
+                // PACE failed - return error
+                NfcLogger.logAuthAttempt(AUTH_METHOD_PACE, paceOid, "failed");
+                NfcLogger.logError(NfcReadStatus.PACE_FAILED, "pace_authentication", swCode, e);
+
+                return AuthResult.failure(NfcReadResult.paceError(
+                        NfcReadStatus.PACE_FAILED,
+                        "pace_authentication",
+                        swCode,
+                        "PACE authentication failed: " + e.getMessage(),
+                        paceOid
+                ));
+            }
+        }
+
+        // No PACE info found - use BAC
+        NfcLogger.logAuthAttempt(AUTH_METHOD_PACE, null, "not_available");
+        return performBacAuthentication(service, mrz);
     }
 
     /**
-     * Determines if the error indicates PACE is required.
-     *
-     * PACE requirement is indicated by:
-     * 1. SW = 0x6985 (CONDITIONS NOT SATISFIED)
-     * 2. Error message containing "CONDITIONS NOT SATISFIED"
-     * 3. Error message containing "expected length: 40 + 2, actual length: 2"
+     * Performs BAC (Basic Access Control) authentication.
      */
-    static boolean isPaceRequiredError(String swCode, String errorMessage) {
-        // Check SW code
-        if (swCode != null && swCode.equalsIgnoreCase(SW_PACE_REQUIRED)) {
-            return true;
+    private static AuthResult performBacAuthentication(PassportService service, Models.MRZKeys mrz) {
+        NfcLogger.logStage("bac_authentication");
+        NfcLogger.logAuthAttempt(AUTH_METHOD_BAC, null, "attempting");
+
+        BACKey bacKey = new BACKey(
+                mrz.document_number,
+                mrz.date_of_birth,
+                mrz.date_of_expiry
+        );
+
+        try {
+            service.doBAC(bacKey);
+            NfcLogger.logAuthAttempt(AUTH_METHOD_BAC, null, "success");
+            return AuthResult.bacSuccess();
+
+        } catch (Exception e) {
+            String swCode = extractSwCode(e);
+            String errorMessage = e.getMessage();
+
+            // Mask document number for logging
+            String docNumMasked = mrz.document_number != null && mrz.document_number.length() > 3
+                    ? mrz.document_number.substring(0, 3) + "***"
+                    : "***";
+
+            NfcLogger.logAuthAttempt(AUTH_METHOD_BAC, null, "failed");
+            NfcLogger.logError(NfcReadStatus.BAC_FAILED, "bac_authentication", swCode, e);
+
+            return AuthResult.failure(NfcReadResult.error(
+                    NfcReadStatus.BAC_FAILED,
+                    "bac_authentication",
+                    swCode,
+                    "BAC authentication failed [doc=" + docNumMasked + "]: " + errorMessage
+            ));
+        }
+    }
+
+    /**
+     * Determines if the error indicates PACE is not supported.
+     * These errors allow fallback to BAC.
+     *
+     * @return true if PACE is not supported and BAC fallback should be attempted
+     */
+    private static boolean isPaceNotSupportedError(String swCode, String errorMessage) {
+        if (swCode != null) {
+            // File not found, function not supported, wrong parameters, instruction not supported
+            if (swCode.equalsIgnoreCase(SW_FILE_NOT_FOUND) ||
+                swCode.equalsIgnoreCase(SW_FUNCTION_NOT_SUPPORTED) ||
+                swCode.equalsIgnoreCase(SW_WRONG_P1P2) ||
+                swCode.equalsIgnoreCase(SW_INS_NOT_SUPPORTED)) {
+                return true;
+            }
         }
 
-        // Check error message patterns
         if (errorMessage != null) {
-            Matcher matcher = PACE_INDICATOR_PATTERN.matcher(errorMessage);
-            return matcher.find();
+            String msg = errorMessage.toLowerCase();
+            // Check for common "not supported" indicators
+            if (msg.contains("file not found") ||
+                msg.contains("not supported") ||
+                msg.contains("not available") ||
+                msg.contains("no such file")) {
+                return true;
+            }
         }
 
         return false;

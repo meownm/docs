@@ -39,47 +39,12 @@ public class NfcPassportReaderTest {
         assertEquals("input_validation", result.errorStage);
     }
 
-    // PACE detection tests
+    // Authentication method constants tests
 
     @Test
-    public void isPaceRequiredError_detectsSwCode6985() {
-        assertTrue(NfcPassportReader.isPaceRequiredError("6985", null));
-        assertTrue(NfcPassportReader.isPaceRequiredError("6985", "some error"));
-    }
-
-    @Test
-    public void isPaceRequiredError_detectsSwCode6985CaseInsensitive() {
-        assertTrue(NfcPassportReader.isPaceRequiredError("6985", null));
-        assertTrue(NfcPassportReader.isPaceRequiredError("6985", null));
-    }
-
-    @Test
-    public void isPaceRequiredError_detectsConditionsNotSatisfied() {
-        assertTrue(NfcPassportReader.isPaceRequiredError(null, "CONDITIONS NOT SATISFIED"));
-        assertTrue(NfcPassportReader.isPaceRequiredError(null, "Error: CONDITIONS NOT SATISFIED at offset 0"));
-        assertTrue(NfcPassportReader.isPaceRequiredError(null, "conditions not satisfied"));
-        assertTrue(NfcPassportReader.isPaceRequiredError(null, "Conditions   Not   Satisfied"));
-    }
-
-    @Test
-    public void isPaceRequiredError_detectsExpectedLengthPattern() {
-        assertTrue(NfcPassportReader.isPaceRequiredError(null, "expected length: 40 + 2, actual length: 2"));
-        assertTrue(NfcPassportReader.isPaceRequiredError(null, "Error: expected length: 40 + 2, actual length: 2 at BAC"));
-    }
-
-    @Test
-    public void isPaceRequiredError_returnsFalseForOtherErrors() {
-        assertFalse(NfcPassportReader.isPaceRequiredError(null, null));
-        assertFalse(NfcPassportReader.isPaceRequiredError(null, ""));
-        assertFalse(NfcPassportReader.isPaceRequiredError(null, "Generic BAC error"));
-        assertFalse(NfcPassportReader.isPaceRequiredError("6300", "Authentication failed"));
-        assertFalse(NfcPassportReader.isPaceRequiredError("6982", "Security status not satisfied"));
-    }
-
-    @Test
-    public void isPaceRequiredError_prioritizesSwCodeOver6985() {
-        // Even if message doesn't mention PACE, SW=6985 is definitive
-        assertTrue(NfcPassportReader.isPaceRequiredError("6985", "Unknown error"));
+    public void authMethodConstants_areCorrect() {
+        assertEquals("PACE", NfcPassportReader.AUTH_METHOD_PACE);
+        assertEquals("BAC", NfcPassportReader.AUTH_METHOD_BAC);
     }
 
     // SW code extraction tests
@@ -126,5 +91,22 @@ public class NfcPassportReaderTest {
         // When main message is null-like but cause has SW code
         Exception wrapperWithNullMsg = new Exception(null, cause);
         assertEquals("6985", NfcPassportReader.extractSwCode(wrapperWithNullMsg));
+    }
+
+    // Tests for PACE-related SW codes
+
+    @Test
+    public void extractSwCode_extractsPaceRelatedCodes() {
+        // 6A82 - File not found (PACE not supported)
+        assertEquals("6A82", NfcPassportReader.extractSwCode(new Exception("SW = 0x6A82")));
+
+        // 6A81 - Function not supported
+        assertEquals("6A81", NfcPassportReader.extractSwCode(new Exception("SW = 0x6A81")));
+
+        // 6D00 - Instruction not supported
+        assertEquals("6D00", NfcPassportReader.extractSwCode(new Exception("SW = 0x6D00")));
+
+        // 6300 - Authentication failed
+        assertEquals("6300", NfcPassportReader.extractSwCode(new Exception("SW = 0x6300")));
     }
 }

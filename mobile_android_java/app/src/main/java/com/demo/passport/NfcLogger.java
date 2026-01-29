@@ -109,6 +109,63 @@ public final class NfcLogger {
     }
 
     /**
+     * Logs PACE authentication attempt with details.
+     *
+     * @param authMethod The authentication method used (PACE or BAC)
+     * @param paceOid The PACE OID string if available (null for BAC)
+     * @param paceResult The result of PACE attempt (success, fallback_to_bac, failed)
+     */
+    public static void logAuthAttempt(
+            @NonNull String authMethod,
+            @Nullable String paceOid,
+            @NonNull String paceResult
+    ) {
+        JsonObject log = new JsonObject();
+        log.addProperty("event", "nfc_auth_attempt");
+        log.addProperty("nfc_auth_method", authMethod);
+        if (paceOid != null) {
+            log.addProperty("pace_oid", paceOid);
+        }
+        log.addProperty("pace_result", paceResult);
+        log.addProperty("timestamp", System.currentTimeMillis());
+        Log.i(TAG, gson.toJson(log));
+    }
+
+    /**
+     * Logs successful authentication with the method used.
+     *
+     * @param authMethod The authentication method used (PACE or BAC)
+     * @param paceOid The PACE OID string if PACE was used
+     */
+    public static void logAuthSuccess(@NonNull String authMethod, @Nullable String paceOid) {
+        JsonObject log = new JsonObject();
+        log.addProperty("event", "nfc_auth_success");
+        log.addProperty("nfc_auth_method", authMethod);
+        if (paceOid != null) {
+            log.addProperty("pace_oid", paceOid);
+        }
+        log.addProperty("timestamp", System.currentTimeMillis());
+        Log.i(TAG, gson.toJson(log));
+    }
+
+    /**
+     * Logs CardAccess file information.
+     *
+     * @param paceInfoCount Number of PACE infos found
+     * @param selectedOid The selected PACE OID
+     */
+    public static void logCardAccess(int paceInfoCount, @Nullable String selectedOid) {
+        JsonObject log = new JsonObject();
+        log.addProperty("event", "nfc_card_access");
+        log.addProperty("pace_info_count", paceInfoCount);
+        if (selectedOid != null) {
+            log.addProperty("selected_pace_oid", selectedOid);
+        }
+        log.addProperty("timestamp", System.currentTimeMillis());
+        Log.d(TAG, gson.toJson(log));
+    }
+
+    /**
      * Sanitizes a message to remove potential MRZ data.
      * Masks sequences that look like document numbers or dates.
      */
