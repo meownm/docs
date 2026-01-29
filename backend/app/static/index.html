@@ -167,11 +167,11 @@
         webcamStatusEl.textContent = "Запрашиваю доступ к камере...";
         webcamStatusEl.className = "webcam-status";
 
-        // Request camera with maximum resolution
+        // Request camera with 2K resolution
         const constraints = {
           video: {
-            width: { ideal: 4096 },
-            height: { ideal: 2160 },
+            width: { ideal: 2560 },
+            height: { ideal: 1440 },
             facingMode: "environment"
           },
           audio: false
