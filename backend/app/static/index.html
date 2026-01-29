@@ -28,6 +28,15 @@
       </div>
       <div class="webcam-controls">
         <button id="btn-camera-toggle" class="btn btn-secondary">Включить камеру</button>
+        <button id="btn-camera-switch" class="btn btn-secondary btn-icon" disabled title="Переключить камеру">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M11 19H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/>
+            <path d="M13 5h7a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-5"/>
+            <circle cx="12" cy="12" r="3"/>
+            <path d="m18 22-3-3 3-3"/>
+            <path d="m6 2 3 3-3 3"/>
+          </svg>
+        </button>
         <button id="btn-snapshot" class="btn btn-primary" disabled>Сделать снимок и распознать</button>
       </div>
       <div id="webcam-status" class="webcam-status"></div>
@@ -154,6 +163,7 @@
     const canvasEl = document.getElementById("snapshot-canvas");
     const placeholderEl = document.getElementById("webcam-placeholder");
     const btnToggle = document.getElementById("btn-camera-toggle");
+    const btnCameraSwitch = document.getElementById("btn-camera-switch");
     const btnSnapshot = document.getElementById("btn-snapshot");
     const webcamStatusEl = document.getElementById("webcam-status");
     const resultContainer = document.getElementById("recognition-result");
@@ -161,6 +171,18 @@
 
     let mediaStream = null;
     let isRecognizing = false;
+    let currentFacingMode = "environment"; // "environment" = back, "user" = front
+    let hasMultipleCameras = false;
+
+    async function checkMultipleCameras() {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === "videoinput");
+        hasMultipleCameras = videoDevices.length > 1;
+      } catch (err) {
+        hasMultipleCameras = false;
+      }
+    }
 
     async function startCamera() {
       try {
@@ -172,7 +194,7 @@
           video: {
             width: { ideal: 2560 },
             height: { ideal: 1440 },
-            facingMode: "environment"
+            facingMode: currentFacingMode
           },
           audio: false
         };
@@ -188,25 +210,33 @@
           };
         });
 
+        // Check for multiple cameras after getting permission
+        await checkMultipleCameras();
+
         const track = mediaStream.getVideoTracks()[0];
         const settings = track.getSettings();
         const actualWidth = settings.width || videoEl.videoWidth;
         const actualHeight = settings.height || videoEl.videoHeight;
 
+        // Determine camera type for status message
+        const cameraType = currentFacingMode === "user" ? "передняя" : "задняя";
+
         placeholderEl.style.display = "none";
         videoEl.style.display = "block";
         btnToggle.textContent = "Выключить камеру";
         btnSnapshot.disabled = false;
-        webcamStatusEl.textContent = `Камера активна (${actualWidth}×${actualHeight})`;
+        btnCameraSwitch.disabled = !hasMultipleCameras;
+        webcamStatusEl.textContent = `Камера активна: ${cameraType} (${actualWidth}×${actualHeight})`;
         webcamStatusEl.className = "webcam-status success";
 
       } catch (err) {
         console.error("Camera error:", err);
         webcamStatusEl.textContent = "Ошибка доступа к камере: " + err.message;
         webcamStatusEl.className = "webcam-status error";
+        btnCameraSwitch.disabled = true;
         reportError({
           error_message: "Camera access error: " + err.message,
-          context_json: { error_name: err.name }
+          context_json: { error_name: err.name, facingMode: currentFacingMode }
         });
       }
     }
@@ -221,8 +251,20 @@
       placeholderEl.style.display = "flex";
       btnToggle.textContent = "Включить камеру";
       btnSnapshot.disabled = true;
+      btnCameraSwitch.disabled = true;
       webcamStatusEl.textContent = "";
       webcamStatusEl.className = "webcam-status";
+    }
+
+    async function switchCamera() {
+      if (!mediaStream || isRecognizing) return;
+
+      // Toggle facing mode
+      currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
+
+      // Stop current stream and start with new facing mode
+      stopCamera();
+      await startCamera();
     }
 
     btnToggle.addEventListener("click", () => {
@@ -231,6 +273,10 @@
       } else {
         startCamera();
       }
+    });
+
+    btnCameraSwitch.addEventListener("click", () => {
+      switchCamera();
     });
 
     btnSnapshot.addEventListener("click", async () => {

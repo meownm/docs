@@ -192,3 +192,135 @@ h1 {
   color: #c92a2a;
   font-size: 14px;
 }
+
+/* Camera switch button */
+.btn-icon {
+  padding: 10px 14px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+/* Mobile responsive styles */
+@media (max-width: 768px) {
+  .container {
+    padding: 12px;
+  }
+
+  h1 {
+    font-size: 18px;
+    margin-bottom: 12px;
+  }
+
+  .card {
+    padding: 12px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+  }
+
+  .card h2 {
+    font-size: 16px;
+    margin: 0 0 12px 0;
+  }
+
+  /* Webcam on mobile */
+  .webcam-preview {
+    max-width: 100%;
+    aspect-ratio: 4/3;
+  }
+
+  .webcam-controls {
+    display: flex;
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .webcam-controls .btn {
+    flex: 1;
+    padding: 12px 10px;
+    font-size: 13px;
+  }
+
+  .webcam-controls .btn-icon {
+    flex: 0 0 auto;
+    padding: 12px;
+  }
+
+  .btn {
+    min-height: 44px;
+  }
+
+  .webcam-status {
+    font-size: 12px;
+    margin-top: 8px;
+  }
+
+  /* Recognition result on mobile */
+  .recognition-result {
+    padding: 12px;
+  }
+
+  .result-row {
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .result-label {
+    min-width: unset;
+    font-size: 12px;
+  }
+
+  .result-value {
+    font-size: 15px;
+  }
+
+  /* Photo section on mobile */
+  .photo {
+    width: 100%;
+    max-width: 260px;
+    height: auto;
+    aspect-ratio: 3/4;
+    margin: 0 auto;
+  }
+
+  .status {
+    font-size: 13px;
+    padding: 8px 10px;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 400px) {
+  .container {
+    padding: 8px;
+  }
+
+  h1 {
+    font-size: 16px;
+  }
+
+  .webcam-controls {
+    flex-wrap: wrap;
+  }
+
+  .webcam-controls .btn:not(.btn-icon) {
+    flex: 1 1 100%;
+    order: 2;
+  }
+
+  .webcam-controls .btn-icon {
+    order: 1;
+    flex: 0 0 auto;
+  }
+
+  .webcam-placeholder {
+    font-size: 12px;
+    padding: 12px;
+  }
+}
