@@ -52,7 +52,11 @@ public final class NfcPassportReader {
             service.open();
             // Select the passport applet before BAC authentication
             // Without this, doBAC() fails with SW=0x6985 (CONDITIONS NOT SATISFIED)
-            service.sendSelectApplet(false);
+            boolean appletSelected = service.sendSelectApplet(false);
+            if (!appletSelected) {
+                throw new IllegalStateException(
+                    "Failed to select passport applet. Ensure the document is positioned correctly on the NFC reader.");
+            }
             BACKey bacKey = new BACKey(
                     mrz.document_number,
                     mrz.date_of_birth,
@@ -61,7 +65,15 @@ public final class NfcPassportReader {
             try {
                 service.doBAC(bacKey);
             } catch (Exception e) {
-                throw new IllegalStateException("BAC failed: " + e.getMessage(), e);
+                // Include MRZ info for debugging (document number partially masked)
+                String docNumMasked = mrz.document_number != null && mrz.document_number.length() > 3
+                    ? mrz.document_number.substring(0, 3) + "***"
+                    : "null";
+                throw new IllegalStateException(
+                    "BAC failed: " + e.getMessage() +
+                    " [doc=" + docNumMasked +
+                    ", dob=" + mrz.date_of_birth +
+                    ", exp=" + mrz.date_of_expiry + "]", e);
             }
 
             // Read raw DG1 bytes without parsing
