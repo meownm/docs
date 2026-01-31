@@ -155,6 +155,12 @@ cd mobile_android_java
 gradlew test
 ```
 
+Web UI (unit/integration логика камеры):
+
+```bash
+node web/tests/run_tests.js
+```
+
 ## Проверка NFC на устройстве (manual)
 1. Подготовьте MRZ (ручной ввод или результат распознавания).
 2. Запустите сканирование NFC и поднесите паспорт к телефону.

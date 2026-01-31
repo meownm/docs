@@ -19,7 +19,7 @@
       <h2>Распознавание с веб-камеры</h2>
       <div class="webcam-container">
         <div class="webcam-preview">
-          <video id="webcam-video" autoplay playsinline></video>
+          <video id="webcam-video" autoplay playsinline muted></video>
           <div id="webcam-placeholder" class="webcam-placeholder">
             Нажмите "Включить камеру" для предпросмотра
           </div>
@@ -55,6 +55,7 @@
     </section>
   </main>
 
+  <script src="/static/webcam.js"></script>
   <script>
     const statusEl = document.getElementById("status");
     const faceEl = document.getElementById("face");
@@ -159,218 +160,21 @@
     // ============================================================
     // Webcam functionality
     // ============================================================
-    const videoEl = document.getElementById("webcam-video");
-    const canvasEl = document.getElementById("snapshot-canvas");
-    const placeholderEl = document.getElementById("webcam-placeholder");
-    const btnToggle = document.getElementById("btn-camera-toggle");
-    const btnCameraSwitch = document.getElementById("btn-camera-switch");
-    const btnSnapshot = document.getElementById("btn-snapshot");
-    const webcamStatusEl = document.getElementById("webcam-status");
-    const resultContainer = document.getElementById("recognition-result");
-    const resultContent = document.getElementById("result-content");
-
-    let mediaStream = null;
-    let isRecognizing = false;
-    let currentFacingMode = "environment"; // "environment" = back, "user" = front
-    let hasMultipleCameras = false;
-
-    async function checkMultipleCameras() {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(d => d.kind === "videoinput");
-        hasMultipleCameras = videoDevices.length > 1;
-      } catch (err) {
-        hasMultipleCameras = false;
-      }
-    }
-
-    async function startCamera() {
-      try {
-        webcamStatusEl.textContent = "Запрашиваю доступ к камере...";
-        webcamStatusEl.className = "webcam-status";
-
-        // Request camera with 2K resolution
-        const constraints = {
-          video: {
-            width: { ideal: 2560 },
-            height: { ideal: 1440 },
-            facingMode: currentFacingMode
-          },
-          audio: false
-        };
-
-        mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
-        videoEl.srcObject = mediaStream;
-
-        // Wait for video to be ready
-        await new Promise((resolve) => {
-          videoEl.onloadedmetadata = () => {
-            videoEl.play();
-            resolve();
-          };
-        });
-
-        // Check for multiple cameras after getting permission
-        await checkMultipleCameras();
-
-        const track = mediaStream.getVideoTracks()[0];
-        const settings = track.getSettings();
-        const actualWidth = settings.width || videoEl.videoWidth;
-        const actualHeight = settings.height || videoEl.videoHeight;
-
-        // Determine camera type for status message
-        const cameraType = currentFacingMode === "user" ? "передняя" : "задняя";
-
-        placeholderEl.style.display = "none";
-        videoEl.style.display = "block";
-        btnToggle.textContent = "Выключить камеру";
-        btnSnapshot.disabled = false;
-        btnCameraSwitch.disabled = !hasMultipleCameras;
-        webcamStatusEl.textContent = `Камера активна: ${cameraType} (${actualWidth}×${actualHeight})`;
-        webcamStatusEl.className = "webcam-status success";
-
-      } catch (err) {
-        console.error("Camera error:", err);
-        webcamStatusEl.textContent = "Ошибка доступа к камере: " + err.message;
-        webcamStatusEl.className = "webcam-status error";
-        btnCameraSwitch.disabled = true;
-        reportError({
-          error_message: "Camera access error: " + err.message,
-          context_json: { error_name: err.name, facingMode: currentFacingMode }
-        });
-      }
-    }
-
-    function stopCamera() {
-      if (mediaStream) {
-        mediaStream.getTracks().forEach(track => track.stop());
-        mediaStream = null;
-      }
-      videoEl.srcObject = null;
-      videoEl.style.display = "none";
-      placeholderEl.style.display = "flex";
-      btnToggle.textContent = "Включить камеру";
-      btnSnapshot.disabled = true;
-      btnCameraSwitch.disabled = true;
-      webcamStatusEl.textContent = "";
-      webcamStatusEl.className = "webcam-status";
-    }
-
-    async function switchCamera() {
-      if (!mediaStream || isRecognizing) return;
-
-      // Toggle facing mode
-      currentFacingMode = currentFacingMode === "environment" ? "user" : "environment";
-
-      // Stop current stream and start with new facing mode
-      stopCamera();
-      await startCamera();
-    }
-
-    btnToggle.addEventListener("click", () => {
-      if (mediaStream) {
-        stopCamera();
-      } else {
-        startCamera();
-      }
+    const webcamController = WebcamUI.init({
+      videoEl: document.getElementById("webcam-video"),
+      canvasEl: document.getElementById("snapshot-canvas"),
+      placeholderEl: document.getElementById("webcam-placeholder"),
+      btnToggle: document.getElementById("btn-camera-toggle"),
+      btnCameraSwitch: document.getElementById("btn-camera-switch"),
+      btnSnapshot: document.getElementById("btn-snapshot"),
+      webcamStatusEl: document.getElementById("webcam-status"),
+      resultContainer: document.getElementById("recognition-result"),
+      resultContent: document.getElementById("result-content"),
+      reportError,
+      fetchImpl: window.fetch ? window.fetch.bind(window) : null,
+      mediaDevices: navigator.mediaDevices,
+      FormDataClass: window.FormData
     });
-
-    btnCameraSwitch.addEventListener("click", () => {
-      switchCamera();
-    });
-
-    btnSnapshot.addEventListener("click", async () => {
-      if (!mediaStream || isRecognizing) return;
-
-      isRecognizing = true;
-      btnSnapshot.disabled = true;
-      btnSnapshot.textContent = "Распознавание...";
-      webcamStatusEl.textContent = "Делаю снимок и отправляю на распознавание...";
-      webcamStatusEl.className = "webcam-status";
-      resultContainer.style.display = "none";
-
-      try {
-        // Get actual video dimensions for max resolution snapshot
-        const track = mediaStream.getVideoTracks()[0];
-        const settings = track.getSettings();
-        const width = settings.width || videoEl.videoWidth;
-        const height = settings.height || videoEl.videoHeight;
-
-        // Capture snapshot at full resolution
-        canvasEl.width = width;
-        canvasEl.height = height;
-        const ctx = canvasEl.getContext("2d");
-        ctx.drawImage(videoEl, 0, 0, width, height);
-
-        // Convert to blob
-        const blob = await new Promise((resolve) => {
-          canvasEl.toBlob(resolve, "image/jpeg", 0.95);
-        });
-
-        // Send to recognition API
-        const formData = new FormData();
-        formData.append("image", blob, "snapshot.jpg");
-
-        const response = await fetch("/api/recognize", {
-          method: "POST",
-          body: formData
-        });
-
-        const result = await response.json();
-
-        // Display result
-        resultContainer.style.display = "block";
-        if (result.error) {
-          resultContent.innerHTML = `<div class="result-error">Ошибка: ${escapeHtml(result.error)}</div>`;
-          webcamStatusEl.textContent = "Распознавание завершено с ошибкой";
-          webcamStatusEl.className = "webcam-status error";
-        } else {
-          resultContent.innerHTML = `
-            <div class="result-success">
-              <div class="result-row"><span class="result-label">Номер документа:</span> <span class="result-value">${escapeHtml(result.document_number || "—")}</span></div>
-              <div class="result-row"><span class="result-label">Дата рождения:</span> <span class="result-value">${formatDate(result.date_of_birth)}</span></div>
-              <div class="result-row"><span class="result-label">Дата истечения:</span> <span class="result-value">${formatDate(result.date_of_expiry)}</span></div>
-            </div>
-          `;
-          webcamStatusEl.textContent = "Распознавание успешно завершено";
-          webcamStatusEl.className = "webcam-status success";
-        }
-
-      } catch (err) {
-        console.error("Recognition error:", err);
-        resultContainer.style.display = "block";
-        resultContent.innerHTML = `<div class="result-error">Ошибка сети: ${escapeHtml(err.message)}</div>`;
-        webcamStatusEl.textContent = "Ошибка при распознавании";
-        webcamStatusEl.className = "webcam-status error";
-        reportError({
-          error_message: "Recognition request error: " + err.message,
-          stacktrace: err.stack || null
-        });
-      } finally {
-        isRecognizing = false;
-        btnSnapshot.disabled = false;
-        btnSnapshot.textContent = "Сделать снимок и распознать";
-      }
-    });
-
-    function escapeHtml(str) {
-      if (!str) return "";
-      return String(str)
-        .replace(/&/g, "&amp;")
-        .replace(/</g, "&lt;")
-        .replace(/>/g, "&gt;")
-        .replace(/"/g, "&quot;");
-    }
-
-    function formatDate(yymmdd) {
-      if (!yymmdd || yymmdd.length !== 6) return yymmdd || "—";
-      const yy = yymmdd.substring(0, 2);
-      const mm = yymmdd.substring(2, 4);
-      const dd = yymmdd.substring(4, 6);
-      const year = parseInt(yy, 10);
-      const fullYear = year > 50 ? 1900 + year : 2000 + year;
-      return `${dd}.${mm}.${fullYear}`;
-    }
   </script>
 </body>
 </html>
