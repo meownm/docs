@@ -551,8 +551,17 @@ public class MainActivity extends AppCompatActivity {
     }
 
     private void readNfcInBackground(android.nfc.Tag tag, Models.MRZKeys keys) {
+        // Track read time for diagnostics
+        long readStartTime = System.currentTimeMillis();
+
         // Server-side decoding: read raw DG1/DG2 bytes without parsing
         NfcReadResult nfcResult = NfcPassportReader.readPassportRaw(tag, keys);
+
+        long readTimeMs = System.currentTimeMillis() - readStartTime;
+
+        // Create diagnostic data regardless of success/failure
+        NfcDiagnosticData diagnosticData = NfcDiagnosticData.fromNfcReadResult(
+                nfcResult, keys, readTimeMs);
 
         // Handle non-success statuses - NO backend calls for client-side errors
         if (!nfcResult.isSuccess()) {
@@ -561,6 +570,8 @@ public class MainActivity extends AppCompatActivity {
                 lastErrorMessage = nfcResult.getUserMessage();
                 Log.w(TAG, "NFC read failed: " + nfcResult);
                 setState(State.ERROR);
+                // Always show diagnostic screen, even on error
+                openDiagnosticScreen(diagnosticData);
             });
             return;
         }
@@ -570,9 +581,13 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 lastErrorMessage = nfcResult.getUserMessage();
                 setState(State.ERROR);
+                openDiagnosticScreen(diagnosticData);
             });
             return;
         }
+
+        // Store diagnostic data for later use (after backend call)
+        final NfcDiagnosticData finalDiagnosticData = diagnosticData;
 
         Models.NfcRawResult result = nfcResult.data;
         String validationError = validateNfcRawResult(result);
@@ -580,6 +595,7 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 lastErrorMessage = validationError;
                 setState(State.ERROR);
+                openDiagnosticScreen(finalDiagnosticData);
             });
             return;
         }
@@ -589,6 +605,7 @@ public class MainActivity extends AppCompatActivity {
             runOnUiThread(() -> {
                 lastErrorMessage = "Ошибка подготовки NFC: " + payloadError;
                 setState(State.ERROR);
+                openDiagnosticScreen(finalDiagnosticData);
             });
             return;
         }
@@ -600,6 +617,7 @@ public class MainActivity extends AppCompatActivity {
                     runOnUiThread(() -> {
                         lastErrorMessage = "Не удалось получить URL фото";
                         setState(State.ERROR);
+                        openDiagnosticScreen(finalDiagnosticData);
                     });
                     return;
                 }
@@ -614,6 +632,8 @@ public class MainActivity extends AppCompatActivity {
                             }
                             lastErrorMessage = null;
                             setState(State.RESULT);
+                            // Show diagnostic screen after successful NFC read
+                            openDiagnosticScreen(finalDiagnosticData);
                         });
                     }
 
@@ -622,6 +642,8 @@ public class MainActivity extends AppCompatActivity {
                         runOnUiThread(() -> {
                             lastErrorMessage = message;
                             setState(State.ERROR);
+                            // Show diagnostic screen even on backend error
+                            openDiagnosticScreen(finalDiagnosticData);
                         });
                     }
                 });
@@ -632,9 +654,23 @@ public class MainActivity extends AppCompatActivity {
                 runOnUiThread(() -> {
                     lastErrorMessage = message;
                     setState(State.ERROR);
+                    // Show diagnostic screen even on backend error
+                    openDiagnosticScreen(finalDiagnosticData);
                 });
             }
         });
+    }
+
+    /**
+     * Opens the NFC diagnostic screen with the given data.
+     */
+    private void openDiagnosticScreen(NfcDiagnosticData data) {
+        if (data == null) {
+            Log.w(TAG, "Cannot open diagnostic screen: data is null");
+            return;
+        }
+        Intent intent = NfcDiagnosticActivity.createIntent(this, data);
+        startActivity(intent);
     }
 
     private void updateManualInputControls() {

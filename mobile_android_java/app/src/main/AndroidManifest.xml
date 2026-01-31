@@ -34,5 +34,10 @@
 
         </activity>
 
+        <activity
+            android:name=".NfcDiagnosticActivity"
+            android:exported="false"
+            android:parentActivityName=".MainActivity" />
+
     </application>
 </manifest>
