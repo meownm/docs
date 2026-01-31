@@ -28,6 +28,45 @@ def build_prompt_for_passport_recognition() -> str:
     )
 
 
+def build_prompt_for_passport_v2() -> str:
+    return (
+        "You are a document OCR assistant.\n"
+        "Task: read the passport image and extract all available fields.\n"
+        "Return ONLY a JSON object in the structure:\n"
+        "{\n"
+        '  "fields": {\n'
+        '    "document_number": {"value": "...", "confidence": 0.0, "text_type": "printed|handwritten|unknown", "language": "ru|en|...", "zones": [{"page": 0, "x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0}]},\n'
+        '    "document_series": {"value": "...", "confidence": 0.0},\n'
+        '    "last_name": {"value": "...", "confidence": 0.0},\n'
+        '    "first_name": {"value": "...", "confidence": 0.0},\n'
+        '    "middle_name": {"value": "...", "confidence": 0.0},\n'
+        '    "date_of_birth": {"value": "YYYY-MM-DD", "confidence": 0.0},\n'
+        '    "place_of_birth": {"value": "...", "confidence": 0.0},\n'
+        '    "gender": {"value": "...", "confidence": 0.0},\n'
+        '    "nationality": {"value": "...", "confidence": 0.0},\n'
+        '    "date_of_issue": {"value": "YYYY-MM-DD", "confidence": 0.0},\n'
+        '    "date_of_expiry": {"value": "YYYY-MM-DD", "confidence": 0.0},\n'
+        '    "issuing_authority": {"value": "...", "confidence": 0.0},\n'
+        '    "issuing_country": {"value": "...", "confidence": 0.0},\n'
+        '    "personal_number": {"value": "...", "confidence": 0.0}\n'
+        "  },\n"
+        '  "mrz": {\n'
+        '    "lines": ["...", "..."],\n'
+        '    "document_number": "...",\n'
+        '    "date_of_birth": "YYYY-MM-DD",\n'
+        '    "date_of_expiry": "YYYY-MM-DD",\n'
+        '    "confidence": 0.0\n'
+        "  },\n"
+        '  "zones": [{"field": "document_number", "page": 0, "x": 0.0, "y": 0.0, "w": 0.0, "h": 0.0}],\n'
+        '  "checks": [{"code": "...", "status": "ok|warning|error", "message": "..."}],\n'
+        '  "raw_text": "..."\n'
+        "}\n"
+        "Use 0..1 confidence scores. Be pessimistic. Do NOT guess values.\n"
+        "If you are not sure, set value to null and confidence to 0.0.\n"
+        "No markdown, no extra text.\n"
+    )
+
+
 async def _log_llm_request(
     *,
     request_id: str,
@@ -67,7 +106,7 @@ async def _log_llm_request(
         await conn.commit()
 
 
-async def ollama_chat_with_image(image_bytes: bytes) -> tuple[str, str]:
+async def _ollama_chat_with_image_prompt(image_bytes: bytes, prompt: str) -> tuple[str, str]:
     """
     Реальный вызов Ollama vision-модели через /api/chat.
     Возвращает (request_id, assistant_text).
@@ -95,8 +134,6 @@ async def ollama_chat_with_image(image_bytes: bytes) -> tuple[str, str]:
         raise ValueError(error_text)
 
     image_b64 = base64.b64encode(image_bytes).decode("ascii")
-    prompt = build_prompt_for_passport_recognition()
-
     payload: dict[str, Any] = {
         "model": model,
         "stream": False,
@@ -189,3 +226,17 @@ async def ollama_chat_with_image(image_bytes: bytes) -> tuple[str, str]:
         ts_utc=ts_utc,
     )
     return request_id, content
+
+
+async def ollama_chat_with_image(image_bytes: bytes) -> tuple[str, str]:
+    return await _ollama_chat_with_image_prompt(
+        image_bytes,
+        build_prompt_for_passport_recognition(),
+    )
+
+
+async def ollama_chat_with_image_v2(image_bytes: bytes) -> tuple[str, str]:
+    return await _ollama_chat_with_image_prompt(
+        image_bytes,
+        build_prompt_for_passport_v2(),
+    )

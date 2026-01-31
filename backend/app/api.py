@@ -14,7 +14,8 @@ from fastapi import APIRouter, UploadFile, File, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
 from app.settings import settings
-from app.llm import ollama_chat_with_image, LLMUnavailableError
+from app.llm import ollama_chat_with_image, ollama_chat_with_image_v2, LLMUnavailableError
+from app.ocr_v2 import build_passport_v2_response, build_passport_v2_error_response
 from app.events import event_bus
 from app.db import get_db
 from app.schemas import AppErrorLogIn
@@ -221,9 +222,42 @@ async def _recognize_impl(image: UploadFile):
     return mrz
 
 
+async def _recognize_v2_impl(image: UploadFile):
+    image_bytes = await image.read()
+    request_id = str(uuid.uuid4())
+    if not image_bytes:
+        return build_passport_v2_error_response(
+            request_id,
+            code="EMPTY_IMAGE",
+            message="Empty image file",
+        )
+
+    try:
+        request_id, llm_text = await ollama_chat_with_image_v2(image_bytes)
+    except LLMUnavailableError as e:
+        return build_passport_v2_error_response(
+            request_id,
+            code="LLM_UNAVAILABLE",
+            message=str(e),
+        )
+    except Exception as e:
+        return build_passport_v2_error_response(
+            request_id,
+            code="LLM_ERROR",
+            message=f"LLM error: {e}",
+        )
+
+    return build_passport_v2_response(request_id, llm_text)
+
+
 @router.post("/recognize")
 async def recognize_passport(image: UploadFile = File(...)):
     return await _recognize_impl(image)
+
+
+@router.post("/ocr/passport/v2")
+async def recognize_passport_v2(image: UploadFile = File(...)):
+    return await _recognize_v2_impl(image)
 
 
 # ============================================================

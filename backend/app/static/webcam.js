@@ -249,26 +249,37 @@
         const formData = new deps.FormDataClass();
         formData.append("image", blob, "snapshot.jpg");
 
-        const response = await deps.fetchImpl("/api/recognize", {
+        const response = await deps.fetchImpl("/api/ocr/passport/v2", {
           method: "POST",
           body: formData,
         });
 
         const result = await response.json();
         resultContainer.style.display = "block";
-        if (result.error) {
-          resultContent.innerHTML = `<div class="result-error">Ошибка: ${escapeHtml(result.error)}</div>`;
-          setStatus("Распознавание завершено с ошибкой", "error");
-        } else {
+        const hasErrors = Array.isArray(result.errors) && result.errors.length > 0;
+        if (result.status === "error" || hasErrors) {
+          const errorsHtml = renderErrors(result.errors || []);
           resultContent.innerHTML = `
-            <div class="result-success">
-              <div class="result-row"><span class="result-label">Номер документа:</span> <span class="result-value">${escapeHtml(result.document_number || "—")}</span></div>
-              <div class="result-row"><span class="result-label">Дата рождения:</span> <span class="result-value">${formatDate(result.date_of_birth)}</span></div>
-              <div class="result-row"><span class="result-label">Дата истечения:</span> <span class="result-value">${formatDate(result.date_of_expiry)}</span></div>
-            </div>
+            <div class="result-error">Распознавание завершено с ошибкой</div>
+            ${errorsHtml}
           `;
-          setStatus("Распознавание успешно завершено", "success");
+          setStatus("Распознавание завершено с ошибкой", "error");
+          return;
         }
+
+        const modelConfidenceHtml = renderModelConfidence(result.model_confidence);
+        const fieldsHtml = renderFields(result.fields || {});
+        const mrzHtml = renderMrz(result.mrz);
+        const checksHtml = renderChecks(result.checks || []);
+        resultContent.innerHTML = `
+          <div class="result-success">
+            ${modelConfidenceHtml}
+            ${fieldsHtml}
+            ${mrzHtml}
+            ${checksHtml}
+          </div>
+        `;
+        setStatus("Распознавание успешно завершено", "success");
       } catch (err) {
         console.error("Recognition error:", err);
         resultContainer.style.display = "block";
@@ -287,6 +298,140 @@
       }
     }
 
+    const fieldLabels = {
+      document_number: "Номер документа",
+      document_series: "Серия документа",
+      last_name: "Фамилия",
+      first_name: "Имя",
+      middle_name: "Отчество",
+      date_of_birth: "Дата рождения",
+      place_of_birth: "Место рождения",
+      gender: "Пол",
+      nationality: "Гражданство",
+      date_of_issue: "Дата выдачи",
+      date_of_expiry: "Дата окончания",
+      issuing_authority: "Орган выдачи",
+      issuing_country: "Страна выдачи",
+      personal_number: "Личный номер",
+    };
+
+    function renderFields(fields) {
+      const rows = Object.entries(fieldLabels).map(([key, label]) => {
+        const entry = fields[key] || {};
+        const value = entry.value == null || entry.value === "" ? "—" : entry.value;
+        const confidence = formatConfidence(entry.confidence);
+        const meta = formatFieldMeta(entry);
+        return `
+          <div class="result-row">
+            <span class="result-label">${escapeHtml(label)}:</span>
+            <span class="result-value">${escapeHtml(String(value))}</span>
+            <span class="result-confidence">${confidence}</span>
+            ${meta}
+          </div>
+        `;
+      });
+      return `
+        <div class="result-section">
+          <div class="result-section-title">Поля паспорта</div>
+          ${rows.join("")}
+        </div>
+      `;
+    }
+
+    function renderMrz(mrz) {
+      if (!mrz || (!mrz.lines?.value && !mrz.document_number?.value)) {
+        return "";
+      }
+      const lines = (mrz.lines && mrz.lines.value) || [];
+      const lineHtml = Array.isArray(lines)
+        ? lines.map((line) => `<div class="mrz-line">${escapeHtml(line)}</div>`).join("")
+        : "";
+      return `
+        <div class="result-section">
+          <div class="result-section-title">MRZ</div>
+          ${lineHtml}
+          <div class="result-row">
+            <span class="result-label">Номер документа:</span>
+            <span class="result-value">${escapeHtml(mrz.document_number?.value || "—")}</span>
+            <span class="result-confidence">${formatConfidence(mrz.document_number?.confidence)}</span>
+          </div>
+          <div class="result-row">
+            <span class="result-label">Дата рождения:</span>
+            <span class="result-value">${escapeHtml(mrz.date_of_birth?.value || "—")}</span>
+            <span class="result-confidence">${formatConfidence(mrz.date_of_birth?.confidence)}</span>
+          </div>
+          <div class="result-row">
+            <span class="result-label">Дата окончания:</span>
+            <span class="result-value">${escapeHtml(mrz.date_of_expiry?.value || "—")}</span>
+            <span class="result-confidence">${formatConfidence(mrz.date_of_expiry?.confidence)}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderModelConfidence(value) {
+      return `
+        <div class="result-section">
+          <div class="result-section-title">Интегральная уверенность</div>
+          <div class="result-row">
+            <span class="result-label">Оценка модели:</span>
+            <span class="result-value">${formatConfidence(value)}</span>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderChecks(checks) {
+      if (!Array.isArray(checks) || checks.length === 0) {
+        return "";
+      }
+      const items = checks
+        .map((check) => {
+          const statusClass = check.status ? `check-${escapeHtml(check.status)}` : "";
+          return `<li class="check-item ${statusClass}">${escapeHtml(check.message || "")}</li>`;
+        })
+        .join("");
+      return `
+        <div class="result-section">
+          <div class="result-section-title">Проверки</div>
+          <ul class="check-list">${items}</ul>
+        </div>
+      `;
+    }
+
+    function renderErrors(errors) {
+      if (!Array.isArray(errors) || errors.length === 0) {
+        return "";
+      }
+      const items = errors
+        .map((error) => `<li>${escapeHtml(error.message || "")}</li>`)
+        .join("");
+      return `<ul class="error-list">${items}</ul>`;
+    }
+
+    function formatFieldMeta(entry) {
+      const textType = mapTextType(entry.text_type);
+      const language = entry.language ? `Язык: ${escapeHtml(entry.language)}` : null;
+      if (!textType && !language) {
+        return "";
+      }
+      const parts = [];
+      if (textType) {
+        parts.push(`Тип: ${textType}`);
+      }
+      if (language) {
+        parts.push(language);
+      }
+      return `<span class="result-meta">${parts.join(" · ")}</span>`;
+    }
+
+    function mapTextType(value) {
+      if (!value) return "неизвестно";
+      if (value === "printed") return "печатный";
+      if (value === "handwritten") return "рукописный";
+      return "неизвестно";
+    }
+
     function escapeHtml(str) {
       if (!str) return "";
       return String(str)
@@ -296,14 +441,12 @@
         .replace(/"/g, "&quot;");
     }
 
-    function formatDate(yymmdd) {
-      if (!yymmdd || yymmdd.length !== 6) return yymmdd || "—";
-      const yy = yymmdd.substring(0, 2);
-      const mm = yymmdd.substring(2, 4);
-      const dd = yymmdd.substring(4, 6);
-      const year = parseInt(yy, 10);
-      const fullYear = year > 50 ? 1900 + year : 2000 + year;
-      return `${dd}.${mm}.${fullYear}`;
+    function formatConfidence(value) {
+      const numeric = typeof value === "number" ? value : Number(value);
+      if (!Number.isFinite(numeric)) {
+        return "—";
+      }
+      return `${Math.round(numeric * 100)}%`;
     }
 
     function init() {

@@ -82,6 +82,58 @@ def test_recognize_mobile_success(client, monkeypatch):
     }
 
 
+def test_recognize_passport_v2_success(client, monkeypatch):
+    async def fake_ollama_v2(image_bytes: bytes):
+        return "req-v2-1", json.dumps(
+            {
+                "fields": {
+                    "document_number": {
+                        "value": "123456789",
+                        "confidence": 0.9,
+                        "text_type": "printed",
+                        "language": "ru",
+                    },
+                    "last_name": {"value": "IVANOV", "confidence": 0.8},
+                    "first_name": {"value": "IVAN", "confidence": 0.8},
+                    "date_of_birth": {"value": "1990-01-01", "confidence": 0.7},
+                },
+                "mrz": {
+                    "document_number": "123456789",
+                    "date_of_birth": "900101",
+                    "date_of_expiry": "300101",
+                    "confidence": 0.7,
+                },
+            }
+        )
+
+    monkeypatch.setattr(api_module, "ollama_chat_with_image_v2", fake_ollama_v2)
+
+    response = client.post(
+        "/api/ocr/passport/v2",
+        files={"image": ("passport.jpg", b"fake-image", "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "ok"
+    assert payload["fields"]["document_number"]["value"] == "123456789"
+    assert payload["mrz"]["date_of_expiry"]["value"] == "2030-01-01"
+    assert payload["fields"]["document_number"]["text_type"] == "printed"
+    assert payload["model_confidence"] == 0.7
+
+
+def test_recognize_passport_v2_empty_image_returns_error(client):
+    response = client.post(
+        "/api/ocr/passport/v2",
+        files={"image": ("passport.jpg", b"", "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "error"
+    assert payload["errors"][0]["code"] == "EMPTY_IMAGE"
+
+
 def test_recognize_passport_empty_image_returns_error_payload(client):
     response = client.post(
         "/recognize",
