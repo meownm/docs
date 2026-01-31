@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fillViewport="true"
+    android:background="#FAFAFA">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="NFC Diagnostic Results"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="#212121"
+            android:layout_marginBottom="16dp" />
+
+        <!-- Section 1: NFC Session -->
+        <LinearLayout
+            android:id="@+id/sectionNfcSession"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/section_background"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="1. NFC Session"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#1976D2"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/textSessionStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="status: SUCCESS" />
+
+            <TextView
+                android:id="@+id/textAccessMethod"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="access_method: BAC" />
+
+            <TextView
+                android:id="@+id/textPaceSupported"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="pace_supported: false" />
+
+            <TextView
+                android:id="@+id/textBacSupported"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="bac_supported: true" />
+
+            <TextView
+                android:id="@+id/textDocumentType"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="document_type: P" />
+
+            <TextView
+                android:id="@+id/textIssuingCountry"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="issuing_country: UTO" />
+
+            <TextView
+                android:id="@+id/textChipInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="chip_info: -" />
+
+            <TextView
+                android:id="@+id/textReadTime"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="read_time_ms: 3245" />
+
+            <TextView
+                android:id="@+id/textLdsVersion"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="lds_version: -" />
+        </LinearLayout>
+
+        <!-- Section 2: Access & MRZ Keys -->
+        <LinearLayout
+            android:id="@+id/sectionMrzKeys"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/section_background"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="2. Access &amp; MRZ Keys"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#1976D2"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/textDocNumberMasked"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="document_number_masked: AB1******" />
+
+            <TextView
+                android:id="@+id/textMrzDob"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="date_of_birth: 740812" />
+
+            <TextView
+                android:id="@+id/textMrzExpiry"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="date_of_expiry: 301231" />
+
+            <TextView
+                android:id="@+id/textMrzKeyHash"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="mrz_key_hash: a1b2c3d4" />
+        </LinearLayout>
+
+        <!-- Section 3: DG1 (MRZ Data) -->
+        <LinearLayout
+            android:id="@+id/sectionDg1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/section_background"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="3. DG1 (MRZ Data)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#1976D2"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/textDg1DocNumber"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="document_number: L898902C3" />
+
+            <TextView
+                android:id="@+id/textDg1IssuingState"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="issuing_state: UTO" />
+
+            <TextView
+                android:id="@+id/textDg1Nationality"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="nationality: UTO" />
+
+            <TextView
+                android:id="@+id/textDg1Surname"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="surname: ERIKSSON" />
+
+            <TextView
+                android:id="@+id/textDg1GivenNames"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="given_names: ANNA MARIA" />
+
+            <TextView
+                android:id="@+id/textDg1Dob"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="date_of_birth: 740812" />
+
+            <TextView
+                android:id="@+id/textDg1Sex"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="sex: F" />
+
+            <TextView
+                android:id="@+id/textDg1Expiry"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="date_of_expiry: 120415" />
+
+            <TextView
+                android:id="@+id/textDg1Optional"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="optional_data_raw: ZE184226B" />
+
+            <TextView
+                android:id="@+id/textDg1RawSize"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                android:textColor="#757575"
+                tools:text="[raw_size: 93 bytes]" />
+        </LinearLayout>
+
+        <!-- Section 4: DG2 (Face Image) -->
+        <LinearLayout
+            android:id="@+id/sectionDg2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/section_background"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="4. DG2 (Face Image)"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#1976D2"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/textDg2Status"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="status: present" />
+
+            <ImageView
+                android:id="@+id/imageDg2Preview"
+                android:layout_width="120dp"
+                android:layout_height="150dp"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"
+                android:background="#E0E0E0"
+                android:scaleType="centerCrop"
+                android:contentDescription="Face image from DG2"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/textDg2Format"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="image_format: JPEG" />
+
+            <TextView
+                android:id="@+id/textDg2Width"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="width_px: 307" />
+
+            <TextView
+                android:id="@+id/textDg2Height"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="height_px: 378" />
+
+            <TextView
+                android:id="@+id/textDg2Size"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="size_bytes: 15234" />
+        </LinearLayout>
+
+        <!-- Section 5: Other Data Groups -->
+        <LinearLayout
+            android:id="@+id/sectionOtherDg"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/section_background"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="5. Other Data Groups"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#1976D2"
+                android:layout_marginBottom="8dp" />
+
+            <TextView
+                android:id="@+id/textDg3Presence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="DG3 (Fingerprint): not read" />
+
+            <TextView
+                android:id="@+id/textDg11Presence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="DG11: not available" />
+
+            <TextView
+                android:id="@+id/textDg12Presence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="DG12: not available" />
+
+            <TextView
+                android:id="@+id/textDg14Presence"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                tools:text="DG14: not available" />
+        </LinearLayout>
+
+        <!-- Section 6: Errors & Warnings -->
+        <LinearLayout
+            android:id="@+id/sectionErrors"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:background="@drawable/section_background_error"
+            android:padding="12dp"
+            android:layout_marginBottom="12dp">
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="6. Errors &amp; Warnings"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                android:textColor="#D32F2F"
+                android:layout_marginBottom="8dp" />
+
+            <LinearLayout
+                android:id="@+id/containerErrors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical" />
+
+            <TextView
+                android:id="@+id/textNoErrors"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:fontFamily="monospace"
+                android:textSize="13sp"
+                android:textColor="#4CAF50"
+                android:text="No errors"
+                android:visibility="gone" />
+        </LinearLayout>
+
+        <!-- Close button -->
+        <Button
+            android:id="@+id/btnClose"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Close"
+            android:layout_marginTop="8dp" />
+
+    </LinearLayout>
+</ScrollView>
