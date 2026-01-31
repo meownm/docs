@@ -175,6 +175,8 @@ h1 {
   display: flex;
   gap: 8px;
   font-size: 14px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .result-label {
@@ -188,9 +190,61 @@ h1 {
   font-family: monospace;
 }
 
+.result-confidence {
+  font-size: 12px;
+  color: #6c757d;
+  margin-left: auto;
+}
+
+.result-meta {
+  font-size: 12px;
+  color: #6c757d;
+}
+
 .result-error {
   color: #c92a2a;
   font-size: 14px;
+}
+
+.result-section {
+  margin-bottom: 16px;
+}
+
+.result-section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #495057;
+  margin-bottom: 8px;
+}
+
+.mrz-line {
+  font-family: monospace;
+  font-size: 12px;
+  color: #212529;
+  margin-bottom: 4px;
+}
+
+.check-list,
+.error-list {
+  padding-left: 18px;
+  margin: 6px 0 0 0;
+  font-size: 13px;
+}
+
+.check-item {
+  margin-bottom: 4px;
+}
+
+.check-item.check-ok {
+  color: #2b8a3e;
+}
+
+.check-item.check-warning {
+  color: #e67700;
+}
+
+.check-item.check-error {
+  color: #c92a2a;
 }
 
 /* Camera switch button */

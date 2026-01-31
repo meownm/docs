@@ -179,13 +179,22 @@ async function testSnapshotIntegration() {
     reportError: () => {},
     fetchImpl: async (url, options) => {
       fetchCalled = true;
-      assert.strictEqual(url, "/api/recognize");
+      assert.strictEqual(url, "/api/ocr/passport/v2");
       assert.ok(options.body instanceof MockFormData);
       return {
         json: async () => ({
-          document_number: "123456",
-          date_of_birth: "900101",
-          date_of_expiry: "300101",
+          status: "ok",
+          model_confidence: 0.72,
+          fields: {
+            document_number: { value: "123456", confidence: 0.9, text_type: "printed", language: "ru" },
+            date_of_birth: { value: "1990-01-01", confidence: 0.8 },
+            date_of_expiry: { value: "2030-01-01", confidence: 0.8 },
+          },
+          mrz: {
+            document_number: { value: "123456", confidence: 0.9 },
+            date_of_birth: { value: "1990-01-01", confidence: 0.8 },
+            date_of_expiry: { value: "2030-01-01", confidence: 0.8 },
+          },
         }),
       };
     },
@@ -205,6 +214,7 @@ async function testSnapshotIntegration() {
   assert.strictEqual(fetchCalled, true);
   assert.strictEqual(elements.resultContainer.style.display, "block");
   assert.ok(elements.resultContent.innerHTML.includes("Номер документа"));
+  assert.ok(elements.resultContent.innerHTML.includes("Интегральная уверенность"));
 }
 
 module.exports = {
